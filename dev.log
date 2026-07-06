@@ -1,0 +1,58 @@
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://21.0.10.97:3000
+- Environments: .env
+✓ Ready in 462ms
+
+○ Compiling /api/public/settings ...
+ GET / 200 in 3.2s (next.js: 2.9s, application-code: 346ms)
+ GET /api/public/services 200 in 4.2s (next.js: 3.7s, application-code: 456ms)
+ GET /api/public/settings 200 in 4.2s (next.js: 3.6s, application-code: 524ms)
+ GET /api/public/settings 200 in 14ms (next.js: 3ms, application-code: 11ms)
+ GET /api/public/services 200 in 10ms (next.js: 2ms, application-code: 7ms)
+ GET / 200 in 59ms (next.js: 3ms, application-code: 55ms)
+ GET /api/public/services 200 in 11ms (next.js: 3ms, application-code: 8ms)
+ GET /api/public/settings 200 in 10ms (next.js: 1935µs, application-code: 8ms)
+ GET /?admin=1 200 in 73ms (next.js: 3ms, application-code: 70ms)
+ GET /api/public/settings 200 in 12ms (next.js: 3ms, application-code: 8ms)
+ GET /api/public/services 200 in 12ms (next.js: 3ms, application-code: 9ms)
+ GET / 200 in 60ms (next.js: 3ms, application-code: 57ms)
+ GET /api/public/services 200 in 14ms (next.js: 3ms, application-code: 10ms)
+ GET /api/public/settings 200 in 11ms (next.js: 2ms, application-code: 9ms)
+ GET /api/public/shops?type=shop 200 in 341ms (next.js: 320ms, application-code: 21ms)
+ GET /api/public/services/5/items 200 in 769ms (next.js: 753ms, application-code: 16ms)
+ GET /api/public/settings 200 in 13ms (next.js: 3ms, application-code: 10ms)
+ GET /api/public/services 200 in 10ms (next.js: 2ms, application-code: 8ms)
+ GET /api/public/shops?type=shop 200 in 9ms (next.js: 3ms, application-code: 6ms)
+ GET /api/public/services 200 in 11ms (next.js: 2ms, application-code: 9ms)
+ GET /api/public/settings 200 in 10ms (next.js: 2ms, application-code: 8ms)
+ GET / 200 in 76ms (next.js: 3ms, application-code: 73ms)
+WARNING: Using default SESSION_SECRET for local dev. Set SESSION_SECRET env var for production.
+ GET /api/admin/me 401 in 280ms (next.js: 272ms, application-code: 8ms)
+ GET / 200 in 72ms (next.js: 3ms, application-code: 69ms)
+ GET /?XTransformPort=3000 200 in 108ms (next.js: 3ms, application-code: 105ms)
+ POST /api/admin/login 401 in 385ms (next.js: 358ms, application-code: 26ms)
+ POST /api/admin/login 401 in 59ms (next.js: 3ms, application-code: 56ms)
+ POST /api/admin/login 401 in 56ms (next.js: 3ms, application-code: 53ms)
+ GET / 200 in 59ms (next.js: 3ms, application-code: 55ms)
+ GET /api/public/services 200 in 12ms (next.js: 3ms, application-code: 9ms)
+ GET /api/public/settings 200 in 10ms (next.js: 2ms, application-code: 7ms)
+ GET /?admin=1 200 in 76ms (next.js: 3ms, application-code: 72ms)
+ POST /api/admin/login 200 in 55ms (next.js: 2ms, application-code: 53ms)
+ GET /api/admin/bookings? 401 in 151ms (next.js: 143ms, application-code: 8ms)
+ GET /api/admin/bookings? 401 in 10ms (next.js: 3ms, application-code: 7ms)
+ POST /api/admin/change-password 401 in 325ms (next.js: 315ms, application-code: 10ms)
+ GET /api/public/settings 200 in 25ms (next.js: 9ms, application-code: 16ms)
+ GET /api/public/services 200 in 24ms (next.js: 3ms, application-code: 21ms)
+ GET /api/admin/me 401 in 10ms (next.js: 3ms, application-code: 7ms)
+⚠ Blocked cross-origin request to Next.js dev resource /__nextjs_font/geist-latin.woff2 from "preview-chat-55347594-0f48-493e-89a2-05ebf96139bc.space-z.ai".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['preview-chat-55347594-0f48-493e-89a2-05ebf96139bc.space-z.ai'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins

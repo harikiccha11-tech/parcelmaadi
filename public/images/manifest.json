@@ -1,0 +1,58 @@
+{
+  "services": {
+    "parcel-delivery": "https://sfile.chatglm.cn/images-ppt/4e2086f05be2.png",
+    "goods-transport": "https://sfile.chatglm.cn/images-ppt/72163a18223b.jpg",
+    "material-supply": "https://sfile.chatglm.cn/images-ppt/4109ef7bace8.jpg",
+    "machinery-rental": "https://sfile.chatglm.cn/images-ppt/70f0b1b629e7.jpg",
+    "water-supply": "https://sfile.chatglm.cn/images-ppt/9010e7b81686.jpg",
+    "supplier-shop": "https://sfile.chatglm.cn/images-ppt/68f5945955e2.jpg",
+    "outstation-booking": "https://sfile.chatglm.cn/images-ppt/d8462d3f9a4b.jpg",
+    "emergency-booking": "https://sfile.chatglm.cn/images-ppt/0782540d55d2.jpg"
+  },
+  "vehicles": {
+    "407": "https://sfile.chatglm.cn/images-ppt/e9f6421df345.jpg",
+    "2-wheeler": "https://sfile.chatglm.cn/images-ppt/4756c1b968ba.jpg",
+    "scooter": "https://sfile.chatglm.cn/images-ppt/e13506635f3f.jpg",
+    "e-loader": "https://sfile.chatglm.cn/images-ppt/8588cfbb8ab4.png",
+    "3-wheeler": "https://sfile.chatglm.cn/images-ppt/81cfaf196dcc.png",
+    "tata-ace": "https://sfile.chatglm.cn/images-ppt/f5c88233459a.jpg",
+    "pickup-8ft": "https://sfile.chatglm.cn/images-ppt/0fef66f4b7d2.png",
+    "pickup-9ft": "https://sfile.chatglm.cn/images-ppt/960607f52cf6.jpg",
+    "14ft": "https://sfile.chatglm.cn/images-ppt/e6651b95c5fa.jpg",
+    "17ft": "https://sfile.chatglm.cn/images-ppt/1497540e47c9.jpg",
+    "19ft": "https://sfile.chatglm.cn/images-ppt/b00530c5e2c5.jpg",
+    "20ft": "https://sfile.chatglm.cn/images-ppt/a46d248b9107.jpg",
+    "32ft": "https://sfile.chatglm.cn/images-ppt/b1b11d115ed1.jpg"
+  },
+  "materials": {
+    "sand": "https://sfile.chatglm.cn/images-ppt/1b5dc2ac5b27.jpeg",
+    "m-sand": "https://sfile.chatglm.cn/images-ppt/cedb12a8b077.jpg",
+    "cement": "https://sfile.chatglm.cn/images-ppt/5126d6423350.jpg",
+    "steel": "https://sfile.chatglm.cn/images-ppt/0a18dbdd62f0.jpg",
+    "bricks": "https://sfile.chatglm.cn/images-ppt/500619644178.jpg",
+    "blocks": "https://sfile.chatglm.cn/images-ppt/42e1fa3826fa.png",
+    "jelly": "https://sfile.chatglm.cn/images-ppt/2d3316213043.png",
+    "stone": "https://sfile.chatglm.cn/images-ppt/16d230ccc5c2.png",
+    "soil": "https://sfile.chatglm.cn/images-ppt/0e118cb75e13.jpg",
+    "other-materials": "https://sfile.chatglm.cn/images-ppt/1aa9783a0537.jpg"
+  },
+  "machinery": {
+    "jcb": "https://sfile.chatglm.cn/images-ppt/c8230f22c1ad.jpg",
+    "excavator": "https://sfile.chatglm.cn/images-ppt/81f1577ff457.jpg",
+    "tractor": "https://sfile.chatglm.cn/images-ppt/b9e19a813472.jpg",
+    "hydra": "https://sfile.chatglm.cn/images-ppt/9e149f9d5a69.jpg",
+    "forklift": "https://sfile.chatglm.cn/images-ppt/9d41eff14ca2.jpg",
+    "concrete-mixer": "https://sfile.chatglm.cn/images-ppt/a13102e69643.jpg",
+    "crane": "https://sfile.chatglm.cn/images-ppt/fe70bd6624a0.png",
+    "other-machinery": "https://sfile.chatglm.cn/images-ppt/2d24e96fd114.jpg"
+  },
+  "water": {
+    "2kl": "https://sfile.chatglm.cn/images-ppt/05c8a74fbb6f.png",
+    "4kl": "https://sfile.chatglm.cn/images-ppt/9010e7b81686.jpg",
+    "6kl": "https://sfile.chatglm.cn/images-ppt/26c5412b437f.jpeg",
+    "12kl": "https://sfile.chatglm.cn/images-ppt/c594351da657.jpg",
+    "drinking-water": "https://sfile.chatglm.cn/images-ppt/b8744bf1cb92.jpg",
+    "borewell-water": "https://sfile.chatglm.cn/images-ppt/d8418016dda5.jpg",
+    "construction-water": "https://sfile.chatglm.cn/images-ppt/3f97a9933f6b.jpg"
+  }
+}

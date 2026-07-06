@@ -1,0 +1,411 @@
+// ParcelMaadi - Prisma schema
+// Admin Panel is master. Customer website reads live data from database.
+// For production (Vercel): set DATABASE_URL to PostgreSQL connection string.
+// For local dev: set DATABASE_URL to SQLite file path (provider auto-detected).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  type      String   @default("text")
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
+
+model DomainSettings {
+  id                 Int      @id @default(autoincrement())
+  customerUrl        String?  @map("customer_url")
+  adminUrl           String?  @map("admin_url")
+  apiBaseUrl         String?  @map("api_base_url")
+  canonicalUrl       String?  @map("canonical_url")
+  whatsappBookingUrl String?  @map("whatsapp_booking_url")
+  logoUrl            String?  @map("logo_url")
+  imageBaseUrl       String?  @map("image_base_url")
+  sitemapUrl         String?  @map("sitemap_url")
+  robotsSettings     String?  @map("robots_settings")
+  seoTitle           String?  @map("seo_title")
+  seoDescription     String?  @map("seo_description")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+}
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?   @map("image_url")
+  icon        String?
+  status      String    @default("Active")
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  vehicles    Vehicle[]
+  priceMaster PriceMaster[]
+  bookings    Booking[]
+}
+
+model Vehicle {
+  id              Int           @id @default(autoincrement())
+  serviceId       Int           @map("service_id")
+  service         Service       @relation(fields: [serviceId], references: [id])
+  name            String
+  slug            String?
+  maxLoad         String?       @map("max_load")
+  imageUrl        String?       @map("image_url")
+  recommendedUse  String?       @map("recommended_use")
+  status          String        @default("Active")
+  sortOrder       Int           @default(0) @map("sort_order")
+  priceMaster     PriceMaster[]
+  bookings        Booking[]
+}
+
+model PriceMaster {
+  id                  Int      @id @default(autoincrement())
+  serviceId           Int      @map("service_id")
+  service             Service  @relation(fields: [serviceId], references: [id])
+  vehicleId           Int?     @map("vehicle_id")
+  vehicle             Vehicle? @relation(fields: [vehicleId], references: [id])
+  supplierId          Int?     @map("supplier_id")
+  supplier            Supplier? @relation(fields: [supplierId], references: [id])
+  zoneId              Int?     @map("zone_id")
+  zone                Zone?    @relation(fields: [zoneId], references: [id])
+  itemType            String?  @map("item_type")
+  pricingType         String   @default("standard") @map("pricing_type")
+  unitType            String?  @map("unit_type")
+  perUnitRate         Float    @default(0) @map("per_unit_rate")
+  minimumKm           Float    @default(0) @map("minimum_km")
+  freeKm              Float    @default(0) @map("free_km")
+  minimumFare         Float    @default(0) @map("minimum_fare")
+  perKmRate           Float    @default(0) @map("per_km_rate")
+  extraKmRate         Float    @default(0) @map("extra_km_rate")
+  slabJson            String   @default("[]") @map("slab_json")
+  loadingCharge       Float    @default(0) @map("loading_charge")
+  unloadingCharge     Float    @default(0) @map("unloading_charge")
+  waitingCharge       Float    @default(0) @map("waiting_charge")
+  helperCharge        Float    @default(0) @map("helper_charge")
+  labourCharge        Float    @default(0) @map("labour_charge")
+  tollCharge          Float    @default(0) @map("toll_charge")
+  parkingCharge       Float    @default(0) @map("parking_charge")
+  nightChargePercent  Float    @default(0) @map("night_charge_percent")
+  expressChargePercent Float   @default(0) @map("express_charge_percent")
+  // surge charges (%)
+  peakSurchargePercent Float   @default(0) @map("peak_surcharge_percent")
+  rainSurchargePercent Float   @default(0) @map("rain_surcharge_percent")
+  demandSurchargePercent Float @default(0) @map("demand_surcharge_percent")
+  // machinery-specific
+  operatorCharge      Float    @default(0) @map("operator_charge")
+  fuelCharge          Float    @default(0) @map("fuel_charge")
+  mobilizationCharge  Float    @default(0) @map("mobilization_charge")
+  demobilizationCharge Float   @default(0) @map("demobilization_charge")
+  minimumHours        Float    @default(0) @map("minimum_hours")
+  extraHourRate       Float    @default(0) @map("extra_hour_rate")
+  // water-specific
+  refillCharge        Float    @default(0) @map("refill_charge")
+  // outstation-specific
+  driverAllowance     Float    @default(0) @map("driver_allowance")
+  nightHaltCharge     Float    @default(0) @map("night_halt_charge")
+  stateTax            Float    @default(0) @map("state_tax")
+  extraDayRate        Float    @default(0) @map("extra_day_rate")
+  // shop-specific
+  platformFee         Float    @default(0) @map("platform_fee")
+  deliveryFee         Float    @default(0) @map("delivery_fee")
+  extraCharge         Float    @default(0) @map("extra_charge")
+  discountPercent     Float    @default(0) @map("discount_percent")
+  gstPercent          Float    @default(0) @map("gst_percent")
+  advancePercent      Float    @default(0) @map("advance_percent")
+  minimumBooking      Float    @default(0) @map("minimum_booking")
+  commissionPercent   Float    @default(0) @map("commission_percent")
+  roundTripMultiplier Float    @default(1.8) @map("round_trip_multiplier")
+  rushSurchargePercent Float   @default(0) @map("rush_surcharge_percent")
+  notes               String?
+  status              String   @default("Active")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+}
+
+model Zone {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?
+  pinCodes    String?  @map("pin_codes")
+  cities      String?
+  status      String   @default("Active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  priceMaster PriceMaster[]
+}
+
+model Coupon {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  description  String?
+  discountType String   @default("percent")
+  discountValue Float   @default(0)
+  minOrderAmount Float  @default(0) @map("min_order_amount")
+  maxDiscount  Float    @default(0) @map("max_discount")
+  usageLimit   Int      @default(0) @map("usage_limit")
+  usedCount    Int      @default(0) @map("used_count")
+  validFrom    DateTime? @map("valid_from")
+  validUntil   DateTime? @map("valid_until")
+  status       String   @default("Active")
+  createdAt    DateTime @default(now()) @map("created_at")
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  name      String
+  mobile    String
+  email     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  bookings  Booking[]
+}
+
+model Booking {
+  id                   Int            @id @default(autoincrement())
+  bookingId            String         @unique @map("booking_id")
+  customerId           Int            @map("customer_id")
+  customer             Customer       @relation(fields: [customerId], references: [id])
+  serviceId            Int            @map("service_id")
+  service              Service        @relation(fields: [serviceId], references: [id])
+  vehicleId            Int?           @map("vehicle_id")
+  vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id])
+  supplierId           Int?           @map("supplier_id")
+  supplier             Supplier?      @relation(fields: [supplierId], references: [id])
+  pickupAddress        String?        @map("pickup_address")
+  pickupLat            Float?         @map("pickup_lat")
+  pickupLng            Float?         @map("pickup_lng")
+  pickupMapLink        String?        @map("pickup_map_link")
+  dropAddress          String?        @map("drop_address")
+  dropLat              Float?         @map("drop_lat")
+  dropLng              Float?         @map("drop_lng")
+  dropMapLink          String?        @map("drop_map_link")
+  distanceKm           Float?         @map("distance_km")
+  distanceMethod       String?        @map("distance_method")
+  scheduleDate         String?        @map("schedule_date")
+  scheduleTime         String?        @map("schedule_time")
+  itemDetails          String?        @map("item_details")
+  weight               String?
+  quantity             String?
+  // per-service-type extras
+  tripType             String?        @map("trip_type")
+  durationHours        Float?         @map("duration_hours")
+  durationDays         Float?         @map("duration_days")
+  unitType             String?        @map("unit_type")
+  unitQuantity         Float?         @map("unit_quantity")
+  materialCost         Float?         @map("material_cost")
+  deliveryCharge       Float?         @map("delivery_charge")
+  rushSurchargeApplied Float?         @map("rush_surcharge_applied")
+  isEmergency          Boolean        @default(false) @map("is_emergency")
+  zoneId               Int?           @map("zone_id")
+  couponCode           String?        @map("coupon_code")
+  couponDiscount       Float          @default(0) @map("coupon_discount")
+  surgeApplied         Float          @default(0) @map("surge_applied")
+  photoUrl             String?        @map("photo_url")
+  fileName             String?        @map("file_name")
+  fileType             String?        @map("file_type")
+  landmark             String?
+  etaText              String?        @map("eta_text")
+  fareSnapshotJson     String         @default("{}") @map("fare_snapshot_json")
+  finalEstimate        Float          @default(0) @map("final_estimate")
+  discountApplied      Float          @default(0) @map("discount_applied")
+  adminFinalAmount     Float?         @map("admin_final_amount")
+  paymentOption        String?        @map("payment_option")
+  paymentStatus        String         @default("Pending") @map("payment_status")
+  paymentReceived      Float          @default(0) @map("payment_received")
+  paymentScreenshotUrl String?        @map("payment_screenshot_url")
+  status               String         @default("New")
+  driverName           String?        @map("driver_name")
+  driverMobile         String?        @map("driver_mobile")
+  driverType           String?        @map("driver_type")
+  adminNotes           String?        @map("admin_notes")
+  customerNotes        String?        @map("customer_notes")
+  createdByIp          String?        @map("created_by_ip")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  statusHistory        StatusHistory[]
+  payments             Payment[]
+}
+
+model Supplier {
+  id                Int       @id @default(autoincrement())
+  supplierName      String    @map("supplier_name")
+  shopName          String?   @map("shop_name")
+  mobile            String?
+  whatsapp          String?
+  address           String?
+  addressLat        Float?    @map("address_lat")
+  addressLng        Float?    @map("address_lng")
+  addressMapLink    String?   @map("address_map_link")
+  flatDeliveryFee   Float     @default(0) @map("flat_delivery_fee")
+  mapLocation       String?   @map("map_location")
+  supplierType      String?   @map("supplier_type")
+  aadhaarUrl        String?   @map("aadhaar_url")
+  panUrl            String?   @map("pan_url")
+  gstUrl            String?   @map("gst_url")
+  udyamUrl          String?   @map("udyam_url")
+  fssaiUrl          String?   @map("fssai_url")
+  bankDetails       String?   @map("bank_details")
+  upiId             String?   @map("upi_id")
+  qrUrl             String?   @map("qr_url")
+  shopPhotoUrl      String?   @map("shop_photo_url")
+  serviceArea       String?   @map("service_area")
+  commissionPercent Float     @default(0) @map("commission_percent")
+  status            String    @default("Pending")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  products          Product[]
+  priceMaster       PriceMaster[]
+  bookings          Booking[]
+}
+
+model Product {
+  id                  Int       @id @default(autoincrement())
+  supplierId          Int       @map("supplier_id")
+  supplier            Supplier  @relation(fields: [supplierId], references: [id])
+  category            String?
+  subcategory         String?   @map("subcategory")
+  productName         String    @map("product_name")
+  brand               String?
+  packSize            String?   @map("pack_size")
+  unit                String?   @map("unit")
+  mrp                 Float     @default(0)
+  marketLowPrice      Float     @default(0) @map("market_low_price")
+  marketHighPrice     Float     @default(0) @map("market_high_price")
+  supplierPrice       Float     @default(0) @map("supplier_price")
+  sellingPrice        Float     @default(0) @map("selling_price")
+  marginPercent       Float     @default(10) @map("margin_percent")
+  gstPercent          Float     @default(5) @map("gst_percent")
+  handlingFee         Float     @default(0) @map("handling_fee")
+  priceSource         String?   @map("price_source")
+  stock               Float     @default(0)
+  expiryResponsibility String?  @map("expiry_responsibility")
+  photoUrl            String?   @map("photo_url")
+  status              String    @default("Pending")
+  city                String?
+  pincode             String?
+  lastUpdated         DateTime? @map("last_updated")
+  createdAt           DateTime  @default(now()) @map("created_at")
+}
+
+model Payment {
+  id            Int       @id @default(autoincrement())
+  bookingId     Int       @map("booking_id")
+  booking       Booking   @relation(fields: [bookingId], references: [id])
+  amount        Float     @default(0)
+  paymentOption String?   @map("payment_option")
+  paymentStatus String    @default("Pending") @map("payment_status")
+  screenshotUrl String?   @map("screenshot_url")
+  verifiedBy    String?   @map("verified_by")
+  verifiedAt    DateTime? @map("verified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+}
+
+model AdminUser {
+  id                  Int      @id @default(autoincrement())
+  name                String?
+  email               String   @unique
+  mobile              String?
+  passwordHash        String   @map("password_hash")
+  role                String   @default("Owner")
+  status              String   @default("Active")
+  forcePasswordChange Boolean  @default(true) @map("force_password_change")
+  createdAt           DateTime @default(now()) @map("created_at")
+  resetTokens         PasswordReset[]
+  activities          AdminActivity[]
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  adminId   Int      @map("admin_id")
+  admin     AdminUser @relation(fields: [adminId], references: [id])
+  token     String   @unique
+  used      Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model AdminActivity {
+  id        Int      @id @default(autoincrement())
+  adminId   Int?     @map("admin_id")
+  admin     AdminUser? @relation(fields: [adminId], references: [id])
+  action    String
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model StatusHistory {
+  id        Int      @id @default(autoincrement())
+  bookingId Int      @map("booking_id")
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  oldStatus String?  @map("old_status")
+  newStatus String?  @map("new_status")
+  changedBy String?  @map("changed_by")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model SeoSetting {
+  id           Int      @id @default(autoincrement())
+  pageSlug     String   @unique @map("page_slug")
+  title        String?
+  description  String?
+  canonicalUrl String?  @map("canonical_url")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+}
+
+model Waitlist {
+  id          Int      @id @default(autoincrement())
+  contact     String
+  contactType String   @map("contact_type") // "email" | "phone"
+  sourcePage  String?  @map("source_page")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([contact])
+}
+
+model ContentSection {
+  id         Int      @id @default(autoincrement())
+  sectionKey String   @unique @map("section_key")
+  title      String?
+  subtitle   String?
+  body       String?
+  imageUrl   String?  @map("image_url")
+  status     String   @default("Active")
+  sortOrder  Int      @default(0) @map("sort_order")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+}
+
+
+model Apk {
+  id                Int      @id @default(autoincrement())
+  name              String
+  slug              String   @unique
+  description       String?
+  iconUrl           String?  @map("icon_url")
+  downloadUrl       String?  @map("download_url")
+  version           String?
+  fileSize          String?  @map("file_size")
+  developer         String?
+  category          String?
+  status            String   @default("Active")
+  maintenanceMode   String   @default("Off") @map("maintenance_mode")
+  maintenanceMsg    String?  @map("maintenance_msg")
+  paymentType       String   @default("Free") @map("payment_type")
+  upiId             String?  @map("upi_id")
+  upiPayeeName      String?  @map("upi_payee_name")
+  paymentAmount     Float    @default(0) @map("payment_amount")
+  paymentCycle      String?  @map("payment_cycle")
+  paymentNotes      String?  @map("payment_notes")
+  qrUrl             String?  @map("qr_url")
+  comingSoon        Boolean  @default(false) @map("coming_soon")
+  comingSoonText    String?  @map("coming_soon_text")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+}

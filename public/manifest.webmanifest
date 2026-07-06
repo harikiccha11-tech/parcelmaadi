@@ -1,0 +1,14 @@
+{
+  "name": "ParcelMaadi — Fast Local Reliable",
+  "short_name": "ParcelMaadi",
+  "description": "Book parcel delivery, goods vehicles, water tankers, construction material and machinery rental in minutes. By HP Enterprise.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#FACC15",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "logistics", "shopping"]
+}

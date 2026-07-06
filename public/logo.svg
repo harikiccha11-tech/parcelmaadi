@@ -1,0 +1,9 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="28" fill="#111827"/>
+  <path d="M60 18 L96 36 L96 72 L60 90 L24 72 L24 36 Z" fill="#FACC15" stroke="#EAB308" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M24 36 L60 54 L96 36" stroke="#111827" stroke-width="3" stroke-linejoin="round" fill="none"/>
+  <path d="M60 54 L60 90" stroke="#111827" stroke-width="3"/>
+  <path d="M42 27 L78 45" stroke="#DC2626" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="60" cy="54" r="5" fill="#DC2626"/>
+  <text x="60" y="112" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#111827" text-anchor="middle">ParcelMaadi</text>
+</svg>
