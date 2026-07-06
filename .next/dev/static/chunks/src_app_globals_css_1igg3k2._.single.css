@@ -4470,6 +4470,10 @@
     background-color: var(--sidebar);
   }
 
+  .has-\[\\u003esvg\]\:px-3:has(:is(u003esvg)) {
+    padding-inline: calc(var(--spacing) * 3);
+  }
+
   .has-\[\>svg\]\:grid-cols-\[calc\(var\(--spacing\)\*4\)_1fr\]:has( > svg) {
     grid-template-columns: calc(var(--spacing) * 4) 1fr;
   }
@@ -6045,6 +6049,19 @@
 
   :is(.rtl\:\*\*\:\[\.rdp-button\\_previous\>svg\]\:rotate-180:where(:is(:lang(ae), :lang(ar), :lang(arc), :lang(bcc), :lang(bqi), :lang(ckb), :lang(dv), :lang(fa), :lang(glk), :lang(he), :lang(ku), :lang(mzn), :lang(nqo), :lang(pnb), :lang(ps), :lang(sd), :lang(ug), :lang(ur), :lang(yi)), [dir="rtl"], [dir="rtl"] *) *):is(.rdp-button_previous > svg) {
     rotate: 180deg;
+  }
+
+  .\[\\u0026_svg\]\:pointer-events-none:is(u0026 svg) {
+    pointer-events: none;
+  }
+
+  .\[\\u0026_svg\]\:shrink-0:is(u0026 svg) {
+    flex-shrink: 0;
+  }
+
+  .\[\\u0026_svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-4:is(u0026 svg:not([class*="size-"])) {
+    width: calc(var(--spacing) * 4);
+    height: calc(var(--spacing) * 4);
   }
 
   :is(.\*\:\[span\]\:last\:flex > *):is(span):last-child {
