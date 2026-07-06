@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "leather shoes mens brown",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/3987e2b47640.jpg",
+      "caption": "",
+      "source": "Moss Bros",
+      "original_width": "2000px",
+      "original_height": "3000px"
+    }
+  ]
+}

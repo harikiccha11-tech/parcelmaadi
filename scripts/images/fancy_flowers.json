@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "artificial flowers bouquet",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/89c61e5265e8.jpg",
+      "caption": "",
+      "source": "Homesake.in",
+      "original_width": "1600px",
+      "original_height": "2000px"
+    }
+  ]
+}

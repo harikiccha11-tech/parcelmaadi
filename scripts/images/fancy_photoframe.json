@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "photo frame wooden",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c8da65a54706.jpg",
+      "caption": "",
+      "source": "Desenio",
+      "original_width": "1000px",
+      "original_height": "1399px"
+    }
+  ]
+}

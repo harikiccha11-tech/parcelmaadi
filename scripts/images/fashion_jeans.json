@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "denim jeans mens blue",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/ebb8e0e91546.jpg",
+      "caption": "",
+      "source": "DUER EU",
+      "original_width": "1143px",
+      "original_height": "1600px"
+    }
+  ]
+}

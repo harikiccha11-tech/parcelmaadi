@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "non stick frying pan",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/50e25bd12b54.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "2560px",
+      "original_height": "2560px"
+    }
+  ]
+}

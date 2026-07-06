@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "power bank 20000mah",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c92866ad0e50.jpg",
+      "caption": "",
+      "source": "Callmate India",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

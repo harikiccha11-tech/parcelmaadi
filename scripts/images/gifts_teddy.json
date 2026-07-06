@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "teddy bear plush brown",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/6c453812e3f1.jpg",
+      "caption": "",
+      "source": "Sonee Sports",
+      "original_width": "1050px",
+      "original_height": "1050px"
+    }
+  ]
+}

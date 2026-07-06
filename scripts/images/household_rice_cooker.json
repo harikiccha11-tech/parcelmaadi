@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "rice cooker electric 1l",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/4caa78026218.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "894px",
+      "original_height": "894px"
+    }
+  ]
+}

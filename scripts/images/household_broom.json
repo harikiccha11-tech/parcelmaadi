@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "broom stick cleaning",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c69de8e25fff.jpg",
+      "caption": "",
+      "source": "eBay UK",
+      "original_width": "1200px",
+      "original_height": "1200px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "cotton tshirt mens round neck",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/cbafea6262ce.jpg",
+      "caption": "",
+      "source": "Maison Sarava",
+      "original_width": "1024px",
+      "original_height": "1280px"
+    }
+  ]
+}

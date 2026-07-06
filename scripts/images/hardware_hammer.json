@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "hammer claw tool",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/48067dd1dd10.jpg",
+      "caption": "",
+      "source": "This Old House",
+      "original_width": "1400px",
+      "original_height": "897px"
+    }
+  ]
+}

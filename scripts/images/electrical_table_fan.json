@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "table fan electric",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/e04b4bff3397.jpg",
+      "caption": "",
+      "source": "Gmark Appliances",
+      "original_width": "1010px",
+      "original_height": "1406px"
+    }
+  ]
+}

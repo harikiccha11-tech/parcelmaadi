@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "notebook ruled 200 pages",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/fa5f11fd51ce.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1000px",
+      "original_height": "863px"
+    }
+  ]
+}

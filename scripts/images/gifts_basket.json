@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "gift basket hamper",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/61c59e644885.jpg",
+      "caption": "",
+      "source": "Lake Champlain Chocolates",
+      "original_width": "1280px",
+      "original_height": "960px"
+    }
+  ]
+}

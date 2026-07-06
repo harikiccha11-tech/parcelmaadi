@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "ball pen blue pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/71591ec9873b.jpg",
+      "caption": "",
+      "source": "Melbourne Office Supplies",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

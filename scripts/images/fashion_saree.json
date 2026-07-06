@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "womens saree silk red",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/6051ab76cf8b.jpg",
+      "caption": "",
+      "source": "Thenmozhi Designs",
+      "original_width": "883px",
+      "original_height": "1324px"
+    }
+  ]
+}

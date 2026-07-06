@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "drill machine power tool",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/54a943025e24.jpg",
+      "caption": "",
+      "source": "broach cutter",
+      "original_width": "4095px",
+      "original_height": "3071px"
+    }
+  ]
+}

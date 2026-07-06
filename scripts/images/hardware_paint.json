@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "paint can gallon white",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/0bc9a975523b.jpg",
+      "caption": "",
+      "source": "eBay",
+      "original_width": "1500px",
+      "original_height": "1491px"
+    }
+  ]
+}

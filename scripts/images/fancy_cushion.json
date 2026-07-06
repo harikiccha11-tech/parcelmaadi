@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "curtain sofa cushion cover",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/648181823315.webp",
+      "caption": "",
+      "source": "Life n Colors",
+      "original_width": "1024px",
+      "original_height": "1365px"
+    }
+  ]
+}

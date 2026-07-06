@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "flower bouquet roses red",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/829a8eeb0f3c.jpg",
+      "caption": "",
+      "source": "The Bloom Room Malvern",
+      "original_width": "1024px",
+      "original_height": "1024px"
+    }
+  ]
+}

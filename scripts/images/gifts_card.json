@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "gift card happy birthday",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/6d241d9e0909.png",
+      "caption": "",
+      "source": "Starbucks",
+      "original_width": "1264px",
+      "original_height": "796px"
+    }
+  ]
+}

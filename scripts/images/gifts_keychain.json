@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "key chain metal fancy",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/efa554d16318.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1200px",
+      "original_height": "1393px"
+    }
+  ]
+}

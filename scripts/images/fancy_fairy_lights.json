@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "led string fairy lights",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/83473ebbb6da.jpg",
+      "caption": "",
+      "source": "TheLights4U",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "dish wash soap bar",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/3cdc97f912fb.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "2000px",
+      "original_height": "2000px"
+    }
+  ]
+}
