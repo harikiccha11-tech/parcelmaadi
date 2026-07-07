@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "electronics appliance shop tv",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/f57dc72eca87.jpg",
+      "caption": "",
+      "source": "www.abt.com",
+      "original_width": "1900px",
+      "original_height": "530px"
+    }
+  ]
+}

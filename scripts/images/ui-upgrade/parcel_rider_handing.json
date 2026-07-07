@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "delivery man handing package customer door",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/7641e6368edb.jpg",
+      "caption": "",
+      "source": "DepositPhotos",
+      "original_width": "1600px",
+      "original_height": "1167px"
+    }
+  ]
+}

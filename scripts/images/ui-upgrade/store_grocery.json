@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "grocery kirana store storefront india",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/0403145c2eb4.jpg",
+      "caption": "",
+      "source": "Justdial",
+      "original_width": "1728px",
+      "original_height": "1296px"
+    }
+  ]
+}

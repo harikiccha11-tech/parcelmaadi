@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "household kitchenware shop interior",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/518403579486.jpg",
+      "caption": "",
+      "source": "Architectural Digest",
+      "original_width": "1600px",
+      "original_height": "2399px"
+    }
+  ]
+}

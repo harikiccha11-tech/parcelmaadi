@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "pet shop dogs cats interior",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/d904619e1097.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "894px",
+      "original_height": "894px"
+    }
+  ]
+}

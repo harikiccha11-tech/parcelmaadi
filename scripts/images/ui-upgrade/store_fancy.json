@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "gift fancy decorative shop interior",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c9847eddf48c.jpg",
+      "caption": "",
+      "source": "Good Housekeeping",
+      "original_width": "2048px",
+      "original_height": "1365px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "bookstore book shop interior india",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/fb730b4b7575.jpg",
+      "caption": "",
+      "source": "champaca.in",
+      "original_width": "3840px",
+      "original_height": "2560px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "gift shop colorful interior",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/92aafc22475a.jpg",
+      "caption": "",
+      "source": "Alamy",
+      "original_width": "1300px",
+      "original_height": "993px"
+    }
+  ]
+}

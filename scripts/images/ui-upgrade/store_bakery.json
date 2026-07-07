@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "bakery cake shop interior",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/59f4ff913989.png",
+      "caption": "",
+      "source": "The Architects Diary",
+      "original_width": "1050px",
+      "original_height": "788px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "flower shop bouquet arrangement",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/868349a854db.jpg",
+      "caption": "",
+      "source": "Viana Floral",
+      "original_width": "1946px",
+      "original_height": "2433px"
+    }
+  ]
+}
