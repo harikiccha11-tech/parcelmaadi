@@ -5,9 +5,9 @@ import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Simple in-memory cache (30 second TTL) to survive rapid refreshes
+// Simple in-memory cache (5 minute TTL) — survives rapid refreshes and multiple users
 let cache: { data: any; ts: number } | null = null;
-const CACHE_TTL_MS = 30 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // GET /api/admin/dashboard — premium KPIs + chart data + live widgets
 // SINGLE SQL query for all counts to avoid connection pool exhaustion

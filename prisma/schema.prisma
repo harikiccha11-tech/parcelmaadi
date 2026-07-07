@@ -165,6 +165,9 @@ model Customer {
   email     String?
   createdAt DateTime  @default(now()) @map("created_at")
   bookings  Booking[]
+
+  @@index([mobile])
+  @@index([createdAt])
 }
 
 model Booking {
@@ -233,6 +236,15 @@ model Booking {
   createdAt            DateTime       @default(now()) @map("created_at")
   statusHistory        StatusHistory[]
   payments             Payment[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([serviceId])
+  @@index([supplierId])
+  @@index([riderId])
+  @@index([isEmergency])
+  @@index([bookingId])
 }
 
 model Supplier {
@@ -264,6 +276,9 @@ model Supplier {
   products          Product[]
   priceMaster       PriceMaster[]
   bookings          Booking[]
+
+  @@index([status])
+  @@index([supplierType])
 }
 
 model Product {
@@ -293,6 +308,11 @@ model Product {
   pincode             String?
   lastUpdated         DateTime? @map("last_updated")
   createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([category])
+  @@index([stock])
 }
 
 model Payment {
@@ -306,6 +326,10 @@ model Payment {
   verifiedBy    String?   @map("verified_by")
   verifiedAt    DateTime? @map("verified_at")
   createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([bookingId])
+  @@index([paymentStatus])
+  @@index([createdAt])
 }
 
 model AdminUser {
@@ -443,6 +467,10 @@ model Rider {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   bookings        Booking[] @relation("RiderBookings")
   settlements     Settlement[]
+
+  @@index([status])
+  @@index([isOnline])
+  @@index([mobile])
 }
 
 model Branch {
@@ -503,6 +531,9 @@ model WalletTransaction {
   reference   String?  // booking_id / settlement_id / etc
   balanceAfter Float   @map("balance_after")
   createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([walletId])
+  @@index([createdAt])
 }
 
 model Settlement {
@@ -650,3 +681,9 @@ model Offer {
 // Add riderId to Booking via relation - we add a nullable riderId field
 // (Prisma doesn't allow easy ALTER on existing models without losing data,
 //  so we use a relation table approach via Rider.bookings)
+
+// =====================================================
+// PERFORMANCE INDEXES (for 20k+ records)
+// =====================================================
+
+// Indexes are added via @@index on existing models below as Prisma schema extensions

@@ -1,55 +1,55 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { parseListParams, paginatedResponse } from "@/lib/list-utils";
 
-// GET /api/admin/products
-export async function GET() {
+// GET /api/admin/product — paginated list
+export async function GET(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const products = await db.product.findMany({ orderBy: { createdAt: "desc" }, include: { supplier: true } });
-  return NextResponse.json({ products });
+  try {
+    const { where, page, limit, skip, take, sortBy, sortOrder } = parseListParams(req, {
+      searchFields: ['productName', 'brand', 'category'],
+      filterFields: ['status'],
+      hasArchived: false,
+      defaultSortBy: "createdAt",
+    });
+
+    const [items, total] = await Promise.all([
+      db.product.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { [sortBy as string]: sortOrder },
+        include: { supplier: true },
+      }),
+      db.product.count({ where }),
+    ]);
+
+    return NextResponse.json(paginatedResponse(items, total, page, limit));
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Failed to fetch" }, { status: 500 });
+  }
 }
 
-// POST /api/admin/products
+// POST /api/admin/product — create (kept as-is, simplified)
 export async function POST(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const body = await req.json();
-  const {
-    supplierId, category, subcategory, productName, brand, packSize, unit,
-    mrp, marketLowPrice, marketHighPrice, supplierPrice, sellingPrice,
-    marginPercent, gstPercent, handlingFee, priceSource,
-    stock, expiryResponsibility, photoUrl, status, city, pincode, lastUpdated,
-  } = body || {};
-  if (!productName) return NextResponse.json({ error: "productName required" }, { status: 400 });
-  if (!supplierId) return NextResponse.json({ error: "supplierId required" }, { status: 400 });
-  const product = await db.product.create({
-    data: {
-      supplierId: Number(supplierId),
-      category: category || null,
-      subcategory: subcategory || null,
-      productName,
-      brand: brand || null,
-      packSize: packSize || unit || null,
-      unit: unit || null,
-      mrp: Number(mrp) || 0,
-      marketLowPrice: Number(marketLowPrice) || 0,
-      marketHighPrice: Number(marketHighPrice) || 0,
-      supplierPrice: Number(supplierPrice) || 0,
-      sellingPrice: Number(sellingPrice) || 0,
-      marginPercent: Number(marginPercent) || 0,
-      gstPercent: Number(gstPercent) || 0,
-      handlingFee: Number(handlingFee) || 0,
-      priceSource: priceSource || null,
-      stock: Number(stock) || 0,
-      expiryResponsibility: expiryResponsibility || null,
-      photoUrl: photoUrl || null,
-      status: status || "Active",
-      city: city || null,
-      pincode: pincode || null,
-      lastUpdated: lastUpdated ? new Date(lastUpdated) : new Date(),
-    },
-    include: { supplier: true },
-  });
-  return NextResponse.json({ product });
+  if (auth.admin.role === "View") return NextResponse.json({ error: "Read-only role" }, { status: 403 });
+  try {
+    const body = await req.json();
+    // Convert numeric fields
+    const data: any = { ...body };
+    for (const k of ["id", "supplierId", "serviceId", "vehicleId", "zoneId", "parentId", "sortOrder", "stock"]) {
+      if (k in data && data[k] !== null && data[k] !== "") data[k] = Number(data[k]);
+    }
+    for (const k of ["mrp", "supplierPrice", "sellingPrice", "marketLowPrice", "marketHighPrice", "marginPercent", "gstPercent", "handlingFee", "flatDeliveryFee", "commissionPercent", "lat", "lng"]) {
+      if (k in data && data[k] !== null && data[k] !== "") data[k] = Number(data[k]);
+    }
+    const item = await db.product.create({ data });
+    return NextResponse.json({ item });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Create failed" }, { status: 500 });
+  }
 }

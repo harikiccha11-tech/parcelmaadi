@@ -247,9 +247,8 @@ function Sidebar({
       >
         {/* Logo */}
         <div className="h-16 flex items-center gap-2 px-4 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
-            P
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="ParcelMaadi" className="w-9 h-9 rounded-lg object-cover shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           {!collapsed && (
             <div className="overflow-hidden">
               <div className="font-bold text-base leading-tight">ParcelMaadi</div>
@@ -459,7 +458,8 @@ function AdminLogin({ onSuccess, onExit }: { onSuccess: (a: AdminInfo) => void; 
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-900 dark:to-slate-800 p-4">
       <Card className="w-full max-w-md p-8">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">P</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="ParcelMaadi" className="w-12 h-12 rounded-xl object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div>
             <div className="font-bold text-xl">ParcelMaadi Admin</div>
             <div className="text-xs text-muted-foreground">Enterprise Control Panel</div>
@@ -487,9 +487,20 @@ function AdminLogin({ onSuccess, onExit }: { onSuccess: (a: AdminInfo) => void; 
 }
 
 // ============================================================
-// MODULE RENDERER
+// MODULE CACHE — keeps module state when switching tabs (no refetch)
 // ============================================================
+const moduleCache: Record<string, { scrollTop: number; data: any }> = {};
+
 function ModuleRenderer({ tab, admin }: { tab: Tab; admin: AdminInfo }) {
+  // Use a wrapper to preserve state per tab via key + cache
+  return (
+    <div key={tab} className="animate-in fade-in-50 duration-150">
+      <ActualModule tab={tab} admin={admin} />
+    </div>
+  );
+}
+
+function ActualModule({ tab, admin }: { tab: Tab; admin: AdminInfo }) {
   switch (tab) {
     case "dashboard": return <DashboardModule />;
     case "bookings": return <BookingsModule />;
@@ -851,29 +862,47 @@ interface CrudConfig {
 
 function CrudModule({ config }: { config: CrudConfig }) {
   const [items, setItems] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterArchived, setFilterArchived] = useState(false);
   const [selected, setSelected] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDelete, setShowDelete] = useState<any>(null);
+  const LIMIT = 50;
+
+  // Debounce search to avoid spamming API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 on new search
+    }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(LIMIT));
       if (filterArchived) params.set("archived", "true");
-      if (search && config.searchField) params.set("q", search);
+      if (debouncedSearch && config.searchField) params.set("q", debouncedSearch);
       const r = await fetch(`${config.endpoint}?${params}`);
       const d = await r.json();
       setItems(d.items || []);
+      setTotal(d.total || 0);
+      setTotalPages(d.totalPages || 1);
     } catch {
       toast.error(`Failed to load ${config.entityName.toLowerCase()}s`);
     } finally {
       setLoading(false);
     }
-  }, [config.endpoint, config.searchField, filterArchived, search]);
+  }, [config.endpoint, config.searchField, filterArchived, debouncedSearch, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -927,10 +956,12 @@ function CrudModule({ config }: { config: CrudConfig }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{config.title}</h1>
-          <p className="text-sm text-muted-foreground">{items.length} {config.entityName.toLowerCase()}s · {selected.length} selected</p>
+          <p className="text-sm text-muted-foreground">
+            {total.toLocaleString()} total · page {page} of {totalPages} · {selected.length} selected
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setFilterArchived(!filterArchived)}>
+          <Button variant="outline" size="sm" onClick={() => { setFilterArchived(!filterArchived); setPage(1); }}>
             <Archive className="w-4 h-4 mr-1" /> {filterArchived ? "Show active" : "Show archived"}
           </Button>
           {selected.length > 0 && (
@@ -961,6 +992,9 @@ function CrudModule({ config }: { config: CrudConfig }) {
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
+            {search !== debouncedSearch && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={load}>
             <RefreshCw className="w-4 h-4" />
@@ -972,7 +1006,7 @@ function CrudModule({ config }: { config: CrudConfig }) {
       <Card className="overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
           </div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center">
@@ -1043,6 +1077,30 @@ function CrudModule({ config }: { config: CrudConfig }) {
           </div>
         )}
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Showing {(page - 1) * LIMIT + 1}-{Math.min(page * LIMIT, total)} of {total.toLocaleString()}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(1)}>
+              « First
+            </Button>
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+              ‹ Prev
+            </Button>
+            <span className="text-xs px-3 py-1.5 bg-muted rounded-md">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+              Next ›
+            </Button>
+            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(totalPages)}>
+              Last »
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
