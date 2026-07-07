@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 // GET /api/admin/dashboard — premium KPIs + chart data + live widgets
 // Optimized: sequential queries to avoid connection pool exhaustion
 export async function GET(req: Request) {
