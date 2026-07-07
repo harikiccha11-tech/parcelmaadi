@@ -1605,27 +1605,235 @@ function VehiclesModule() {
 }
 
 function ZonesModule() {
-  return <CrudModule config={{
-    endpoint: "/api/admin/zones",
-    title: "Zones",
-    entityName: "Zone",
-    searchField: "name",
-    columns: [
-      { key: "id", label: "ID" },
-      { key: "name", label: "Name" },
-      { key: "slug", label: "Slug" },
-      { key: "cities", label: "Cities", render: (z) => z.cities || "—" },
-      { key: "status", label: "Status", render: (z) => <Badge variant={z.status === "Active" ? "default" : "secondary"} className="text-[10px]">{z.status}</Badge> },
-    ],
-    formFields: [
-      { name: "name", label: "Name", required: true },
-      { name: "slug", label: "Slug", required: true },
-      { name: "description", label: "Description", type: "textarea" },
-      { name: "pinCodes", label: "Pin Codes (CSV)" },
-      { name: "cities", label: "Cities (CSV)" },
-      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
-    ],
-  }} />;
+  return (
+    <Tabs defaultValue="zones">
+      <TabsList>
+        <TabsTrigger value="zones">Zones List</TabsTrigger>
+        <TabsTrigger value="availability">Zone-wise Availability</TabsTrigger>
+      </TabsList>
+      <TabsContent value="zones">
+        <CrudModule config={{
+          endpoint: "/api/admin/zones",
+          title: "Zones",
+          entityName: "Zone",
+          searchField: "name",
+          columns: [
+            { key: "id", label: "ID" },
+            { key: "name", label: "Name" },
+            { key: "slug", label: "Slug" },
+            { key: "cities", label: "Cities", render: (z) => z.cities || "—" },
+            { key: "pinCodes", label: "Pincodes", render: (z) => z.pinCodes || "—" },
+            { key: "status", label: "Status", render: (z) => <Badge variant={z.status === "Active" ? "default" : "secondary"} className="text-[10px]">{z.status}</Badge> },
+          ],
+          formFields: [
+            { name: "name", label: "Name", required: true },
+            { name: "slug", label: "Slug", required: true },
+            { name: "description", label: "Description", type: "textarea" },
+            { name: "pinCodes", label: "Pin Codes (CSV)" },
+            { name: "cities", label: "Cities (CSV)" },
+            { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+          ],
+        }} />
+      </TabsContent>
+      <TabsContent value="availability">
+        <ZoneAvailabilityManager />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+// Zone-wise availability manager — admin can toggle services, vehicles, products per zone
+function ZoneAvailabilityManager() {
+  const [zones, setZones] = useState<any[]>([]);
+  const [selectedZone, setSelectedZone] = useState<number | null>(null);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"services" | "vehicles" | "products">("services");
+
+  // Load zones on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/zones?page=1&limit=50");
+        const d = await r.json();
+        setZones(d.items || []);
+        if (d.items?.length > 0) setSelectedZone(d.items[0].id);
+      } catch {}
+    })();
+  }, []);
+
+  // Load availability for selected zone
+  const loadAvailability = useCallback(async () => {
+    if (!selectedZone) return;
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/admin/zones/${selectedZone}/availability`);
+      const d = await r.json();
+      setData(d);
+    } catch {
+      toast.error("Failed to load availability");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedZone]);
+
+  useEffect(() => { loadAvailability(); }, [loadAvailability]);
+
+  // Toggle a single item's availability locally
+  const toggle = (itemType: string, itemId: number, current: boolean) => {
+    if (!data) return;
+    const list = [...data[itemType]];
+    const idx = list.findIndex((x: any) => x.id === itemId);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], available: !current };
+      setData({ ...data, [itemType]: list });
+    }
+  };
+
+  // Bulk set: turn all on or all off for current tab
+  const bulkSet = (available: boolean) => {
+    if (!data) return;
+    setData({ ...data, [tab]: data[tab].map((x: any) => ({ ...x, available })) });
+  };
+
+  // Save changes — collect all items where available differs from original
+  const save = async () => {
+    if (!data) return;
+    setSaving(true);
+    try {
+      // Send all items in current view (server upserts)
+      const items = data[tab] || [];
+      const updates = items.map((x: any) => ({ itemType: tab === "services" ? "Service" : tab === "vehicles" ? "Vehicle" : "Product", itemId: x.id, available: x.available }));
+      const r = await fetch(`/api/admin/zones/${selectedZone}/availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      if (!r.ok) throw new Error("Save failed");
+      const d = await r.json();
+      toast.success(`✅ Saved ${d.updated} ${tab} settings for ${data.zoneName} — customer site updated instantly`);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredItems = (data?.[tab] || []).filter((x: any) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (x.name || x.productName || "").toLowerCase().includes(q) || (x.brand || "").toLowerCase().includes(q) || (x.category || "").toLowerCase().includes(q);
+  });
+
+  const availableCount = (data?.[tab] || []).filter((x: any) => x.available).length;
+  const totalCount = (data?.[tab] || []).length;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">Zone-wise Availability</h1>
+        <p className="text-sm text-muted-foreground">Toggle which services, vehicles, and products are available in each zone. Customers in that zone only see what's enabled here.</p>
+      </div>
+
+      {/* Zone selector */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium">Select Zone:</label>
+          <select
+            value={selectedZone || ""}
+            onChange={(e) => setSelectedZone(Number(e.target.value))}
+            className="px-3 py-2 rounded-md border bg-background text-sm min-w-[260px]"
+          >
+            {zones.map((z) => (
+              <option key={z.id} value={z.id}>{z.name} ({z.cities?.split(",").slice(0,3).join(", ")})</option>
+            ))}
+          </select>
+          {data && (
+            <Badge variant="secondary" className="text-xs">
+              {availableCount}/{totalCount} {tab} available
+            </Badge>
+          )}
+        </div>
+      </Card>
+
+      {loading || !data ? (
+        <Skeleton className="h-64" />
+      ) : (
+        <>
+          {/* Tabs for services/vehicles/products */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+              <TabsList>
+                <TabsTrigger value="services">Services ({data.services.length})</TabsTrigger>
+                <TabsTrigger value="vehicles">Vehicles ({data.vehicles.length})</TabsTrigger>
+                <TabsTrigger value="products">Products ({data.products.length})</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => bulkSet(true)}>Enable All</Button>
+              <Button size="sm" variant="outline" onClick={() => bulkSet(false)}>Disable All</Button>
+              <Button size="sm" onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <Card className="p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search ${tab}...`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </Card>
+
+          {/* Items grid with toggles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto p-1">
+            {filteredItems.map((item: any) => (
+              <Card key={item.id} className={`p-3 flex items-center gap-3 transition-all ${item.available ? "border-green-500/50 bg-green-50/30 dark:bg-green-950/10" : "border-red-500/30 bg-red-50/20 dark:bg-red-950/10 opacity-70"}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {item.imageUrl || item.photoUrl ? (
+                  <img src={item.imageUrl || item.photoUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                    <Package className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{item.name || item.productName}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {item.brand && `${item.brand} · `}
+                    {item.category || item.supplierType || (item.serviceId && `Service #${item.serviceId}`) || `ID: ${item.id}`}
+                    {item.shopName && ` · ${item.shopName}`}
+                  </div>
+                </div>
+                <Switch
+                  checked={item.available}
+                  onCheckedChange={() => toggle(tab, item.id, item.available)}
+                />
+              </Card>
+            ))}
+            {filteredItems.length === 0 && (
+              <div className="col-span-full text-center py-12 text-sm text-muted-foreground">
+                No {tab} match your search
+              </div>
+            )}
+          </div>
+
+          <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
+            💡 <strong>How it works:</strong> When a customer enters their pincode on the home page, they only see services/vehicles/products enabled for their zone. Default = all available. Toggling off = hidden from customers in that zone. Changes are <strong>instant</strong> — no rebuild needed.
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function PricingModule() {

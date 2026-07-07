@@ -99,17 +99,24 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
   // orders
   const [ordersMobile, setOrdersMobile] = useState("");
   const [orders, setOrders] = useState<Booking[]>([]);
+  // Zone filter — user enters their pincode to see only what's available in their area
+  const [userPincode, setUserPincode] = useState<string>("");
+  // Load saved pincode from localStorage on mount
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("pm_pincode") || "" : "";
+    if (saved) setUserPincode(saved);
+  }, []);
 
   useEffect(() => {
     api.getPublic().then((d) => setPublicData(d)).catch(() => {});
-    api.getServices().then((d) => setServices(d.services)).catch(() => {});
+    api.getServices(userPincode).then((d) => setServices(d.services)).catch(() => {});
     // Auto-refresh every 30 seconds so admin changes appear without manual page reload
     const interval = setInterval(() => {
       api.getPublic().then((d) => setPublicData(d)).catch(() => {});
-      api.getServices().then((d) => setServices(d.services)).catch(() => {});
+      api.getServices(userPincode).then((d) => setServices(d.services)).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userPincode]);
 
   const settings = publicData?.settings || {};
   const content = publicData?.content || {};
@@ -439,7 +446,8 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
       <main className="flex-1">
         {step === "home" && (
           <HomeView settings={settings} hero={hero} howItWorks={howItWorks} about={about} trust={trust}
-            services={services} onSelectService={selectService} onOrders={() => setStep("orders")} onPolicies={() => setStep("policies")} />
+            services={services} onSelectService={selectService} onOrders={() => setStep("orders")} onPolicies={() => setStep("policies")}
+            userPincode={userPincode} setUserPincode={setUserPincode} />
         )}
         {step === "location" && selectedService && (selectedService.slug === "parcel-delivery" || selectedService.slug === "goods-transport" || selectedService.slug === "emergency-booking" || selectedService.slug === "outstation-booking") && (
           <LocationView service={selectedService}
@@ -825,7 +833,7 @@ function BorewellDepartmentSection({ onSelectBorewell }: { onSelectBorewell: (v:
   );
 }
 
-function HomeView({ settings, hero, howItWorks, about, trust, services, onSelectService, onOrders, onPolicies }: any) {
+function HomeView({ settings, hero, howItWorks, about, trust, services, onSelectService, onOrders, onPolicies, userPincode, setUserPincode }: any) {
   let testimonials: any[] = [];
   let clients: string[] = [];
   try { testimonials = JSON.parse(settings.trust_testimonials || "[]"); } catch {}
@@ -932,10 +940,48 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
 
       {/* ─── Services grid — clean, images clearly visible ─── */}
       <section id="services" className="mx-auto max-w-6xl px-4 py-8">
+        {/* Pincode selector — sets zone for availability filtering */}
+        <div className="mb-6 flex flex-col sm:flex-row items-center justify-center gap-3 p-4 rounded-2xl bg-muted/40 border-2 border-dashed border-brand-yellow/40">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-brand-red" />
+            <span className="text-sm font-semibold">Deliver to:</span>
+          </div>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            placeholder="Enter 6-digit pincode"
+            value={userPincode}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+              setUserPincode(v);
+              if (v.length === 6) {
+                localStorage.setItem("pm_pincode", v);
+                toast.success(`Showing services available at ${v}`);
+              } else if (v.length === 0) {
+                localStorage.removeItem("pm_pincode");
+              }
+            }}
+            className="px-3 py-2 rounded-lg border-2 border-border bg-background text-sm font-mono w-40 text-center focus:border-brand-yellow focus:outline-none"
+          />
+          {userPincode && userPincode.length === 6 && (
+            <button
+              onClick={() => { setUserPincode(""); localStorage.removeItem("pm_pincode"); toast.info("Showing all services"); }}
+              className="text-xs text-muted-foreground hover:text-brand-red underline"
+            >
+              Clear
+            </button>
+          )}
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            {userPincode && userPincode.length === 6 ? "✓ Zone filter active — showing only available services" : "Optional — shows services available in your area"}
+          </span>
+        </div>
+
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Choose Your Service</h2>
           <div className="h-1 brand-gradient rounded-full mt-2 mx-auto w-32" />
-          <p className="text-muted-foreground mt-2 text-sm">9 services. One app. Book in 2 minutes.</p>
+          <p className="text-muted-foreground mt-2 text-sm">{services.length} services. One app. Book in 2 minutes.</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {services.map((svc: Service) => {
@@ -1957,10 +2003,11 @@ function ShopListView({ service, onSelectShop, onBack }: any) {
   const [loading, setLoading] = useState(true);
   const isFoodDelivery = service?.slug === "food-delivery";
   const shopType = isFoodDelivery ? "restaurant" : "shop";
+  const userPincode = typeof window !== "undefined" ? localStorage.getItem("pm_pincode") || undefined : undefined;
 
   useEffect(() => {
-    api.publicShops(shopType).then((d) => setShops(d.shops || [])).catch(() => {}).finally(() => setLoading(false));
-  }, [shopType]);
+    api.publicShops(shopType, userPincode).then((d) => setShops(d.shops || [])).catch(() => {}).finally(() => setLoading(false));
+  }, [shopType, userPincode]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -2020,21 +2067,22 @@ function ShopProductsView({ service, shopId, onBack, onCheckout }: any) {
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string>("All");
   const cart = useCart();
+  const userPincode = typeof window !== "undefined" ? localStorage.getItem("pm_pincode") || undefined : undefined;
 
   useEffect(() => {
-    api.getProducts().then((d) => {
+    api.getProducts(userPincode).then((d) => {
       let all = d.products || [];
       if (shopId) {
         // Filter by shop/supplier
         all = all.filter((p: any) => p.supplierId === shopId);
       } else if (service?.slug === "grocery-ration") {
         // Grocery items only
-        const GROCERY_CATS = ["Atta & Flour","Dairy","Dal & Pulses","Fruits","Grocery Staples","Masala & Spices","Oils & Ghee","Rice & Grains","Snacks","Spices","Sugar & Salt","Tea & Coffee","Vegetables","Vegetables & Fruits","Oil/Dairy/Bakery"];
+        const GROCERY_CATS = ["Atta & Flour","Dairy","Dal & Pulses","Fruits","Grocery Staples","Masala & Spices","Oils & Ghee","Rice & Grains","Snacks","Spices","Sugar & Salt","Tea & Coffee","Vegetables","Vegetables & Fruits","Oil/Dairy/Bakery","Atta & Flours","Pulses & Lentils","Oils & Ghee","Sugar & Salt","Tea & Coffee","Spices & Masala","Biscuits & Snacks","Cleaning","Personal Care","Beverages","Rice & Grains"];
         all = all.filter((p: any) => GROCERY_CATS.includes(p.category));
       }
       setProducts(all);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [service?.slug, shopId]);
+  }, [service?.slug, shopId, userPincode]);
 
   // Build category list (All + unique categories, sorted)
   const categories = useMemo(() => {

@@ -140,6 +140,7 @@ model Zone {
   status      String   @default("Active")
   createdAt   DateTime @default(now()) @map("created_at")
   priceMaster PriceMaster[]
+  zoneAvailabilities ZoneAvailability[]
 }
 
 model Coupon {
@@ -687,3 +688,21 @@ model Offer {
 // =====================================================
 
 // Indexes are added via @@index on existing models below as Prisma schema extensions
+
+// =====================================================
+// ZONE AVAILABILITY — control which services/vehicles/products are available per zone
+// =====================================================
+
+model ZoneAvailability {
+  id          Int      @id @default(autoincrement())
+  zoneId      Int      @map("zone_id")
+  zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  itemType    String   @map("item_type") // "Service" | "Vehicle" | "Product"
+  itemId      Int      @map("item_id")
+  available   Boolean  @default(true)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([zoneId, itemType, itemId])
+  @@index([zoneId, itemType])
+}

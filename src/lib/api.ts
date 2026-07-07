@@ -204,10 +204,10 @@ async function jsonFetch(url: string, init?: RequestInit) {
 export const api = {
   // public
   getPublic: () => jsonFetch("/api/public/settings"),
-  getServices: () => jsonFetch("/api/public/services"),
+  getServices: (pincode?: string, city?: string) => jsonFetch(`/api/public/services${pincode || city ? `?${pincode ? `pincode=${encodeURIComponent(pincode)}` : ""}${pincode && city ? "&" : ""}${city ? `city=${encodeURIComponent(city)}` : ""}` : ""}`),
   getServiceItems: (id: number) => jsonFetch(`/api/public/services/${id}/items`),
-  getProducts: () => jsonFetch("/api/public/products"),
-  publicShops: (type?: string) => jsonFetch(type ? `/api/public/shops?type=${type}` : "/api/public/shops"),
+  getProducts: (pincode?: string, city?: string) => jsonFetch(`/api/public/products${pincode || city ? `?${pincode ? `pincode=${encodeURIComponent(pincode)}` : ""}${pincode && city ? "&" : ""}${city ? `city=${encodeURIComponent(city)}` : ""}` : ""}`),
+  publicShops: (type?: string, pincode?: string, city?: string) => jsonFetch(`${"/api/public/shops"}?${type ? `type=${type}` : ""}${type && (pincode || city) ? "&" : ""}${pincode ? `pincode=${encodeURIComponent(pincode)}` : ""}${pincode && city ? "&" : ""}${city ? `city=${encodeURIComponent(city)}` : ""}`),
   reverseGeocode: (lat: number, lng: number) => jsonFetch("/api/location/reverse-geocode", { method: "POST", body: JSON.stringify({ lat, lng }) }),
   distance: (data: any) => jsonFetch("/api/location/distance", { method: "POST", body: JSON.stringify(data) }),
   fareEstimate: (data: any) => jsonFetch("/api/fare/estimate", { method: "POST", body: JSON.stringify(data) }),

@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolveZone, filterByZone } from "@/lib/zone-resolver";
 
 // GET /api/public/services — active services for customer website.
+// Optional ?pincode=560001 or ?city=Bengaluru — filters by zone availability
 // Returns `startingPriceText` per service so cards never show a blank price.
 // Falls back to a per-slug label when no price-master rows exist.
-export async function GET() {
-  const services = await db.service.findMany({
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const pincode = url.searchParams.get("pincode") || undefined;
+  const city = url.searchParams.get("city") || undefined;
+
+  const zoneId = await resolveZone({ pincode, city });
+
+  let services = await db.service.findMany({
     where: { status: { in: ["Active", "Coming Soon"] } },
     orderBy: { sortOrder: "asc" },
     include: {
@@ -16,6 +24,9 @@ export async function GET() {
       },
     },
   });
+
+  // Filter services by zone availability (if zoneId is set)
+  services = await filterByZone(services, zoneId, "Service");
 
   const fallback: Record<string, string> = {
     "parcel-delivery": "Starting from ₹49",
