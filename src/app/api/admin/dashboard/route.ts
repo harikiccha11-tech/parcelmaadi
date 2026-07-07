@@ -5,129 +5,157 @@ import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// Simple in-memory cache (30 second TTL) to survive rapid refreshes
+let cache: { data: any; ts: number } | null = null;
+const CACHE_TTL_MS = 30 * 1000;
+
 // GET /api/admin/dashboard — premium KPIs + chart data + live widgets
-// Optimized: sequential queries to avoid connection pool exhaustion
+// SINGLE SQL query for all counts to avoid connection pool exhaustion
 export async function GET(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
+  // Return cached data if fresh
+  if (cache && Date.now() - cache.ts < CACHE_TTL_MS) {
+    return NextResponse.json({ ...cache.data, cached: true, cachedAt: cache.ts });
+  }
+
   try {
-    const url = new URL(req.url);
-    const days = Number(url.searchParams.get("days") || 30);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+    // SINGLE raw SQL query to get all booking counts in one shot
+    const stats: any[] = await db.$queryRaw`
+      SELECT
+        COUNT(*)::int AS total_bookings,
+        COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('day', NOW()))::int AS today_bookings,
+        COUNT(*) FILTER (WHERE status = 'New')::int AS pending,
+        COUNT(*) FILTER (WHERE status = 'Confirmed')::int AS assigned,
+        COUNT(*) FILTER (WHERE status IN ('Assigned', 'Picked Up', 'In Progress'))::int AS picked_up,
+        COUNT(*) FILTER (WHERE status IN ('Delivered', 'Completed'))::int AS delivered,
+        COUNT(*) FILTER (WHERE status = 'Cancelled')::int AS cancelled,
+        COUNT(*) FILTER (WHERE is_emergency = true)::int AS emergency,
+        COUNT(*) FILTER (WHERE supplier_id IS NOT NULL)::int AS marketplace,
+        COALESCE(SUM(final_estimate) FILTER (WHERE created_at >= DATE_TRUNC('day', NOW()) AND status != 'Cancelled'), 0)::float AS revenue_today,
+        COALESCE(SUM(final_estimate) FILTER (WHERE created_at >= DATE_TRUNC('month', NOW()) AND status != 'Cancelled'), 0)::float AS revenue_month
+      FROM "Booking"
+    `;
 
-    // Run queries sequentially (small batches) to avoid pool exhaustion on Supabase free tier (1 connection)
-    const kpis: any = {};
+    const s = stats[0] || {};
 
-    // Batch 1: Booking counts
-    kpis.totalBookings = await db.booking.count();
-    kpis.todayBookings = await db.booking.count({ where: { createdAt: { gte: todayStart } } });
-    kpis.pending = await db.booking.count({ where: { status: "New" } });
-    kpis.assigned = await db.booking.count({ where: { status: "Confirmed" } });
-    kpis.pickedUp = await db.booking.count({ where: { status: { in: ["Assigned", "Picked Up", "In Progress"] } } });
-    kpis.delivered = await db.booking.count({ where: { status: { in: ["Delivered", "Completed"] } } });
-    kpis.cancelled = await db.booking.count({ where: { status: "Cancelled" } });
-    kpis.emergency = await db.booking.count({ where: { isEmergency: true } });
-    kpis.marketplace = await db.booking.count({ where: { supplierId: { not: null } } });
+    // Single query for daily chart
+    let daily: any[] = [];
+    try {
+      daily = await db.$queryRaw`
+        SELECT DATE(b.created_at) as date, COUNT(*)::int as count, COALESCE(SUM(b.final_estimate), 0)::float as revenue
+        FROM "Booking" b
+        WHERE b.created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(b.created_at)
+        ORDER BY DATE(b.created_at)
+      `;
+    } catch {}
 
-    // Batch 2: Revenue
-    const todayRev = await db.booking.aggregate({
-      _sum: { finalEstimate: true },
-      where: { createdAt: { gte: todayStart }, status: { not: "Cancelled" } },
-    });
-    const monthRev = await db.booking.aggregate({
-      _sum: { finalEstimate: true },
-      where: { createdAt: { gte: monthStart }, status: { not: "Cancelled" } },
-    });
-    kpis.revenueToday = todayRev._sum.finalEstimate || 0;
-    kpis.revenueThisMonth = monthRev._sum.finalEstimate || 0;
+    // Single query for service usage
+    const serviceUsage: any[] = await db.$queryRaw`
+      SELECT s.name, COUNT(b.id)::int AS bookings
+      FROM "Service" s
+      LEFT JOIN "Booking" b ON b.service_id = s.id
+      GROUP BY s.id, s.name
+      ORDER BY bookings DESC
+    `;
 
-    // Batch 3: Other entities
-    kpis.activeRiders = await db.rider.count({ where: { isOnline: true, status: "Active" } }).catch(() => 0);
-    kpis.activeVendors = await db.supplier.count({ where: { status: "Approved" } });
-    kpis.activeBranches = await db.branch.count({ where: { status: "Active", archived: false } }).catch(() => 0);
-    kpis.customers = await db.customer.count();
-    kpis.products = await db.product.count({ where: { status: "Active" } });
-    kpis.inventoryAlerts = await db.product.count({ where: { stock: { lt: 10 }, status: "Active" } });
+    // Single query for other counts
+    const otherCounts: any[] = await db.$queryRaw`
+      SELECT
+        (SELECT COUNT(*) FROM "Rider" WHERE is_online = true AND status = 'Active')::int AS active_riders,
+        (SELECT COUNT(*) FROM "Supplier" WHERE status = 'Approved')::int AS active_vendors,
+        (SELECT COUNT(*) FROM "Branch" WHERE status = 'Active' AND archived = false)::int AS active_branches,
+        (SELECT COUNT(*) FROM "Customer")::int AS customers,
+        (SELECT COUNT(*) FROM "Product" WHERE status = 'Active')::int AS products,
+        (SELECT COUNT(*) FROM "Product" WHERE stock < 10 AND status = 'Active')::int AS inventory_alerts,
+        (SELECT COUNT(*) FROM "Supplier" WHERE status = 'Pending')::int AS pending_suppliers,
+        (SELECT COUNT(*) FROM "Product" WHERE status = 'Pending')::int AS pending_products,
+        (SELECT COUNT(*) FROM "SupportTicket" WHERE status = 'Open')::int AS pending_tickets,
+        (SELECT COUNT(*) FROM "Settlement" WHERE status = 'Pending')::int AS pending_settlements
+    `;
+    const o = otherCounts[0] || {};
 
-    // Batch 4: Recent widgets
+    // Recent bookings (just 5)
     const recentBookings = await db.booking.findMany({
-      take: 8,
+      take: 5,
       orderBy: { createdAt: "desc" },
       include: { service: true, customer: true },
     });
+
+    // Recent payments (just 5)
     const recentPayments = await db.payment.findMany({
-      take: 8,
+      take: 5,
       orderBy: { createdAt: "desc" },
       include: { booking: true },
     });
 
-    // Batch 5: Charts (use raw SQL — single query)
-    let bookingsForChart: any[] = [];
+    // Top vendors (just 5)
+    const vendorPerformance: any[] = await db.$queryRaw`
+      SELECT shop_name AS name, supplier_type AS type, status, commission_percent AS commission
+      FROM "Supplier"
+      ORDER BY created_at DESC
+      LIMIT 5
+    `;
+
+    // Top riders (just 5)
+    let riderPerformance: any[] = [];
     try {
-      bookingsForChart = await db.$queryRaw`SELECT DATE(b.created_at) as date, COUNT(*)::int as count, COALESCE(SUM(b.final_estimate), 0)::float as revenue
-                    FROM "Booking" b WHERE b.created_at >= ${since}
-                    GROUP BY DATE(b.created_at) ORDER BY DATE(b.created_at)`;
-    } catch (e) {
-      // Fallback: empty chart
-    }
+      riderPerformance = await db.$queryRaw`
+        SELECT name, total_deliveries AS deliveries, total_earnings AS earnings, rating
+        FROM "Rider"
+        ORDER BY total_deliveries DESC
+        LIMIT 5
+      `;
+    } catch {}
 
-    // Batch 6: Service usage
-    const services = await db.service.findMany({ include: { _count: { select: { bookings: true } } } });
-    const serviceUsage = services.map((s) => ({ name: s.name, bookings: s._count.bookings }));
+    // Top branches (just 5)
+    let branchPerformance: any[] = [];
+    try {
+      branchPerformance = await db.$queryRaw`
+        SELECT name, code, city, status
+        FROM "Branch"
+        WHERE archived = false
+        LIMIT 5
+      `;
+    } catch {}
 
-    // Batch 7: Rider/vendor/branch performance
-    const riderPerformance = await db.rider.findMany({
-      take: 10,
-      orderBy: { totalDeliveries: "desc" },
-      select: { id: true, name: true, totalDeliveries: true, totalEarnings: true, rating: true },
-    }).catch(() => []);
-
-    const vendors = await db.supplier.findMany({
-      take: 10,
-      orderBy: { createdAt: "desc" },
-      select: { id: true, shopName: true, supplierType: true, status: true, commissionPercent: true },
-    });
-    const vendorPerformance = vendors.map((v) => ({
-      name: v.shopName, type: v.supplierType, status: v.status, commission: v.commissionPercent,
-    }));
-
-    const branches = await db.branch.findMany({
-      take: 10,
-      select: { id: true, name: true, code: true, city: true, status: true },
-    }).catch(() => []);
-    const branchPerformance = branches.map((b) => ({
-      name: b.name, code: b.code, city: b.city, status: b.status,
-    }));
-
-    // Batch 8: Pending approvals
-    const pendingSuppliers = await db.supplier.count({ where: { status: "Pending" } });
-    const pendingProducts = await db.product.count({ where: { status: "Pending" } });
-    const pendingTickets = await db.supportTicket.count({ where: { status: "Open" } }).catch(() => 0);
-    const pendingSettlements = await db.settlement.count({ where: { status: "Pending" } }).catch(() => 0);
-
-    // Batch 9: Active bookings for map
+    // Active bookings for map
     const activeBookings = await db.booking.findMany({
       where: { status: { in: ["Assigned", "Picked Up", "In Progress"] }, pickupLat: { not: null } },
       take: 50,
       select: { id: true, bookingId: true, status: true, pickupLat: true, pickupLng: true, dropLat: true, dropLng: true, serviceId: true },
     });
 
-    return NextResponse.json({
-      kpis,
+    const data = {
+      kpis: {
+        totalBookings: s.total_bookings || 0,
+        todayBookings: s.today_bookings || 0,
+        pending: s.pending || 0,
+        assigned: s.assigned || 0,
+        pickedUp: s.picked_up || 0,
+        delivered: s.delivered || 0,
+        cancelled: s.cancelled || 0,
+        emergency: s.emergency || 0,
+        marketplace: s.marketplace || 0,
+        revenueToday: s.revenue_today || 0,
+        revenueThisMonth: s.revenue_month || 0,
+        activeRiders: o.active_riders || 0,
+        activeVendors: o.active_vendors || 0,
+        activeBranches: o.active_branches || 0,
+        customers: o.customers || 0,
+        products: o.products || 0,
+        inventoryAlerts: o.inventory_alerts || 0,
+      },
       pendingApprovals: {
-        suppliers: pendingSuppliers,
-        products: pendingProducts,
-        tickets: pendingTickets,
-        settlements: pendingSettlements,
+        suppliers: o.pending_suppliers || 0,
+        products: o.pending_products || 0,
+        tickets: o.pending_tickets || 0,
+        settlements: o.pending_settlements || 0,
       },
       charts: {
-        daily: bookingsForChart.map((b: any) => ({ date: b.date, count: b.count, revenue: b.revenue })),
+        daily,
         serviceUsage,
         riderPerformance,
         vendorPerformance,
@@ -141,7 +169,12 @@ export async function GET(req: Request) {
         api: "ok",
         lastChecked: new Date().toISOString(),
       },
-    });
+    };
+
+    // Update cache
+    cache = { data, ts: Date.now() };
+
+    return NextResponse.json(data);
   } catch (e: any) {
     console.error("Dashboard error:", e);
     return NextResponse.json({ error: e?.message || "Failed to load dashboard" }, { status: 500 });
