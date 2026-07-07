@@ -894,9 +894,15 @@ function CrudModule({ config }: { config: CrudConfig }) {
       if (debouncedSearch && config.searchField) params.set("q", debouncedSearch);
       const r = await fetch(`${config.endpoint}?${params}`);
       const d = await r.json();
-      setItems(d.items || []);
-      setTotal(d.total || 0);
-      setTotalPages(d.totalPages || 1);
+      // Handle BOTH response shapes:
+      // - New paginated: { items, total, page, totalPages, hasMore }
+      // - Old legacy: { services: [...] } / { vehicles: [...] } / { coupons: [...] } / { zones: [...] } / { bookings: [...] } / { products: [...] }
+      const items = d.items || d.services || d.vehicles || d.coupons || d.zones || d.bookings || d.products || d.suppliers || [];
+      const total = d.total ?? items.length;
+      const totalPages = d.totalPages ?? Math.ceil(total / LIMIT);
+      setItems(items);
+      setTotal(total);
+      setTotalPages(totalPages);
     } catch {
       toast.error(`Failed to load ${config.entityName.toLowerCase()}s`);
     } finally {
