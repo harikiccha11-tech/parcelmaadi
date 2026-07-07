@@ -178,6 +178,9 @@ model Booking {
   vehicle              Vehicle?       @relation(fields: [vehicleId], references: [id])
   supplierId           Int?           @map("supplier_id")
   supplier             Supplier?      @relation(fields: [supplierId], references: [id])
+  riderId              Int?           @map("rider_id")
+  rider                Rider?         @relation("RiderBookings", fields: [riderId], references: [id])
+  otp                  String?
   pickupAddress        String?        @map("pickup_address")
   pickupLat            Float?         @map("pickup_lat")
   pickupLng            Float?         @map("pickup_lng")
@@ -409,3 +412,241 @@ model Apk {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 }
+
+// =====================================================
+// PREMIUM ADMIN PANEL — New models (additive, no breaking changes)
+// =====================================================
+
+model Rider {
+  id              Int       @id @default(autoincrement())
+  name            String
+  mobile          String    @unique
+  email           String?
+  city            String?
+  zoneId          Int?      @map("zone_id")
+  vehicleType     String?   @map("vehicle_type")
+  vehicleNumber   String?   @map("vehicle_number")
+  drivingLicense  String?   @map("driving_license")
+  aadhaar         String?
+  address         String?
+  photoUrl        String?   @map("photo_url")
+  currentLat      Float?    @map("current_lat")
+  currentLng      Float?    @map("current_lng")
+  isOnline        Boolean   @default(false) @map("is_online")
+  isVerified      Boolean   @default(false) @map("is_verified")
+  rating          Float     @default(5)
+  totalDeliveries Int       @default(0) @map("total_deliveries")
+  totalEarnings   Float     @default(0) @map("total_earnings")
+  status          String    @default("Active")
+  archived        Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  bookings        Booking[] @relation("RiderBookings")
+  settlements     Settlement[]
+}
+
+model Branch {
+  id          Int      @id @default(autoincrement())
+  name        String
+  code        String   @unique
+  address     String?
+  city        String?
+  pincode     String?
+  mobile      String?
+  email       String?
+  managerName String?  @map("manager_name")
+  managerMobile String? @map("manager_mobile")
+  lat         Float?
+  lng         Float?
+  zoneId      Int?     @map("zone_id")
+  status      String   @default("Active")
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  parentId    Int?     @map("parent_id")
+  icon        String?
+  imageUrl    String?  @map("image_url")
+  sortOrder   Int      @default(0) @map("sort_order")
+  status      String   @default("Active")
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+}
+
+model Wallet {
+  id           Int      @id @default(autoincrement())
+  holderType   String   @map("holder_type") // "Customer" | "Rider" | "Vendor" | "Branch"
+  holderId     Int      @map("holder_id")
+  balance      Float    @default(0)
+  currency     String   @default("INR")
+  status       String   @default("Active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  transactions WalletTransaction[]
+
+  @@unique([holderType, holderId])
+}
+
+model WalletTransaction {
+  id          Int      @id @default(autoincrement())
+  walletId    Int      @map("wallet_id")
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  type        String   // "Credit" | "Debit"
+  amount      Float
+  description String?
+  reference   String?  // booking_id / settlement_id / etc
+  balanceAfter Float   @map("balance_after")
+  createdAt   DateTime @default(now()) @map("created_at")
+}
+
+model Settlement {
+  id            Int      @id @default(autoincrement())
+  riderId       Int?     @map("rider_id")
+  rider         Rider?   @relation(fields: [riderId], references: [id])
+  vendorId      Int?     @map("vendor_id")
+  periodStart   DateTime @map("period_start")
+  periodEnd     DateTime @map("period_end")
+  totalRides    Int      @default(0) @map("total_rides")
+  grossAmount   Float    @default(0) @map("gross_amount")
+  commission    Float    @default(0)
+  netAmount     Float    @default(0) @map("net_amount")
+  status        String   @default("Pending") // "Pending" | "Approved" | "Paid" | "Cancelled"
+  paidAt        DateTime? @map("paid_at")
+  utr           String?  // bank UTR
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int?     @map("admin_id")
+  adminEmail String? @map("admin_email")
+  action    String
+  module    String?
+  entityId  Int?     @map("entity_id")
+  entityType String? @map("entity_type")
+  before    String?  // JSON snapshot
+  after     String?  // JSON snapshot
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+}
+
+model FeatureFlag {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  label       String?
+  description String?
+  enabled     Boolean  @default(false)
+  rolloutPercent Int   @default(0) @map("rollout_percent")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+}
+
+model ApiKey {
+  id          Int      @id @default(autoincrement())
+  name        String
+  keyPrefix   String   @map("key_prefix")
+  hashedKey   String   @unique @map("hashed_key")
+  scopes      String?  // CSV: "bookings:read,bookings:write,..."
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdBy   String?  @map("created_by")
+  status      String   @default("Active")
+  createdAt   DateTime @default(now()) @map("created_at")
+}
+
+model Integration {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  category    String?  // "Payment" | "SMS" | "Email" | "WhatsApp" | "Maps" | "Analytics"
+  configJson  String   @default("{}") @map("config_json")
+  status      String   @default("Inactive")
+  notes       String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+}
+
+model Banner {
+  id          Int      @id @default(autoincrement())
+  title       String
+  subtitle    String?
+  imageUrl    String?  @map("image_url")
+  linkUrl     String?  @map("link_url")
+  position    String   @default("home_top") // home_top, home_mid, sidebar, etc
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  sortOrder   Int      @default(0) @map("sort_order")
+  status      String   @default("Active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+}
+
+model NotificationLog {
+  id         Int      @id @default(autoincrement())
+  channel    String   // "WhatsApp" | "SMS" | "Email" | "Push"
+  recipient  String
+  subject    String?
+  body       String?
+  status     String   @default("Sent") // Sent, Failed, Queued
+  error      String?
+  meta       String?  // JSON
+  createdAt  DateTime @default(now()) @map("created_at")
+}
+
+model SupportTicket {
+  id          Int      @id @default(autoincrement())
+  subject     String
+  description String?
+  customerId  Int?     @map("customer_id")
+  bookingId   String?  @map("booking_id")
+  channel     String   @default("Web") // Web, WhatsApp, Email, App
+  priority    String   @default("Medium") // Low, Medium, High, Urgent
+  status      String   @default("Open") // Open, In Progress, Resolved, Closed
+  assignedTo  String?  @map("assigned_to")
+  resolution  String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+}
+
+model City {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  state     String?
+  code      String?
+  lat       Float?
+  lng       Float?
+  status    String   @default("Active")
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
+
+model Offer {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  offerType    String   @default("discount") // discount, cashback, free_delivery
+  value        Float    @default(0)
+  minOrderAmount Float  @default(0) @map("min_order_amount")
+  maxDiscount  Float    @default(0) @map("max_discount")
+  applicableServices String? @map("applicable_services") // CSV of service IDs
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  usageLimit   Int      @default(0) @map("usage_limit")
+  usedCount    Int      @default(0) @map("used_count")
+  status       String   @default("Active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+}
+
+// Add riderId to Booking via relation - we add a nullable riderId field
+// (Prisma doesn't allow easy ALTER on existing models without losing data,
+//  so we use a relation table approach via Rider.bookings)

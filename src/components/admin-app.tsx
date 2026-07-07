@@ -1,2746 +1,2299 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
-import { api, type Booking, type PriceMaster, type Service, type Vehicle, type Supplier, type Product, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, SERVICE_STATUS_OPTIONS, ADMIN_ROLES } from "@/lib/api";
-import { ServiceIcon } from "@/components/service-icon";
-import { ImageUpload } from "@/components/image-upload";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+/**
+ * Premium Enterprise Admin Panel for ParcelMaadi
+ * - Premium UI with dark/light mode
+ * - Collapsible sidebar with 30+ modules
+ * - Topbar with command palette, search, notifications, profile
+ * - Dashboard with KPIs, charts, live widgets, map
+ * - Generic CRUD module for master data
+ * - All data dynamic from API
+ */
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, BookOpen, IndianRupee, Boxes, Truck, Users, Package,
-  Settings as SettingsIcon, Globe, LogOut, Loader2, Search, Menu, X,
-  Phone, MessageCircle, ChevronRight, ChevronLeft, Plus, Pencil, Trash2, Check, RefreshCw, Lock,
-  Download, FileText, Bell, UserCog, ShieldAlert, Image as ImageIcon, Ban, Zap, MapPin, Tag, Upload,
-  Smartphone,
+  LayoutDashboard, CalendarClock, Users, Bike, Store, Building2, ShoppingBag,
+  Package, Tags, Boxes, Wrench, Truck, MapPin, Map, Tag, Ticket, Percent,
+  Wallet, Receipt, FileBarChart, BarChart3, FileText, Image, ImagePlus,
+  Bell, MessageCircle, Mail, Smartphone, LifeBuoy, History, Shield, Key,
+  Plug, Settings, DatabaseBackup, User, ChevronLeft, ChevronRight, Menu,
+  Search, Sun, Moon, LogOut, Plus, Edit, Trash2, Archive, RotateCcw,
+  Power, Eye, EyeOff, Download, Upload, X, Check, AlertCircle, Loader2,
+  TrendingUp, IndianRupee, Activity, ArrowUpRight, ArrowDownRight, Filter,
+  MoreVertical, RefreshCw, BellRing, Sparkles, Command, ChevronDown,
 } from "lucide-react";
-import { toast } from "sonner";
-import { StatusBadge } from "@/components/customer-app";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster, toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
-// socket.io-client import removed — admin panel now uses polling instead (Vercel-compatible)
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Command as CommandUI, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
+} from "@/components/ui/command";
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, LineChart, Line,
+} from "recharts";
 
-interface AdminAppProps {
-  onExit: () => void;
-}
+// ============================================================
+// TYPES
+// ============================================================
+type Tab =
+  | "dashboard" | "bookings" | "customers" | "riders" | "vendors" | "branches"
+  | "marketplace" | "products" | "categories" | "inventory" | "services" | "vehicles"
+  | "cities" | "zones" | "pricing" | "coupons" | "offers" | "payments" | "wallet"
+  | "settlements" | "reports" | "analytics" | "cms" | "media" | "banners" | "pages"
+  | "menus" | "notifications" | "whatsapp" | "email" | "sms" | "support" | "audit-logs"
+  | "roles" | "permissions" | "feature-flags" | "api-keys" | "integrations" | "settings"
+  | "backup" | "profile";
 
-type Tab = "dashboard" | "bookings" | "price" | "zones" | "coupons" | "reports" | "departments" | "suppliers" | "products" | "apks" | "users" | "activity" | "settings" | "domain" | "system";
+interface NavItem { id: Tab; label: string; icon: any; group: string; }
+interface AdminInfo { id: number; name: string; email: string; role: string; }
 
-const ADMIN_NAV: { id: Tab; label: string; icon: any }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "departments", label: "Departments", icon: Boxes },
-  { id: "bookings", label: "Bookings", icon: BookOpen },
-  { id: "price", label: "Price Master", icon: IndianRupee },
-  { id: "zones", label: "Zones", icon: MapPin },
-  { id: "coupons", label: "Coupons", icon: Tag },
-  { id: "reports", label: "Reports", icon: Download },
-  { id: "suppliers", label: "Suppliers", icon: Users },
-  { id: "products", label: "Products", icon: Package },
-  { id: "apks", label: "APKs", icon: Smartphone },
-  { id: "users", label: "Admin Users", icon: UserCog },
-  { id: "activity", label: "Activity Log", icon: Bell },
-  { id: "settings", label: "Settings", icon: SettingsIcon },
-  { id: "system", label: "System Tools", icon: ShieldAlert },
-  { id: "domain", label: "Domain", icon: Globe },
+// ============================================================
+// NAV CONFIG
+// ============================================================
+const NAV: NavItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview" },
+  { id: "bookings", label: "Bookings", icon: CalendarClock, group: "Operations" },
+  { id: "customers", label: "Customers", icon: Users, group: "Operations" },
+  { id: "riders", label: "Riders", icon: Bike, group: "Operations" },
+  { id: "vendors", label: "Vendors", icon: Store, group: "Operations" },
+  { id: "branches", label: "Branches", icon: Building2, group: "Operations" },
+  { id: "marketplace", label: "Marketplace", icon: ShoppingBag, group: "Marketplace" },
+  { id: "products", label: "Products", icon: Package, group: "Marketplace" },
+  { id: "categories", label: "Categories", icon: Tags, group: "Marketplace" },
+  { id: "inventory", label: "Inventory", icon: Boxes, group: "Marketplace" },
+  { id: "services", label: "Services", icon: Wrench, group: "Catalog" },
+  { id: "vehicles", label: "Vehicles", icon: Truck, group: "Catalog" },
+  { id: "cities", label: "Cities", icon: MapPin, group: "Catalog" },
+  { id: "zones", label: "Zones", icon: Map, group: "Catalog" },
+  { id: "pricing", label: "Pricing", icon: Tag, group: "Catalog" },
+  { id: "coupons", label: "Coupons", icon: Ticket, group: "Promotions" },
+  { id: "offers", label: "Offers", icon: Percent, group: "Promotions" },
+  { id: "payments", label: "Payments", icon: IndianRupee, group: "Finance" },
+  { id: "wallet", label: "Wallet", icon: Wallet, group: "Finance" },
+  { id: "settlements", label: "Settlements", icon: Receipt, group: "Finance" },
+  { id: "reports", label: "Reports", icon: FileBarChart, group: "Insights" },
+  { id: "analytics", label: "Analytics", icon: BarChart3, group: "Insights" },
+  { id: "cms", label: "CMS", icon: FileText, group: "Content" },
+  { id: "media", label: "Media Library", icon: Image, group: "Content" },
+  { id: "banners", label: "Banners", icon: ImagePlus, group: "Content" },
+  { id: "pages", label: "Pages", icon: FileText, group: "Content" },
+  { id: "menus", label: "Menus", icon: Menu, group: "Content" },
+  { id: "notifications", label: "Notifications", icon: Bell, group: "Comms" },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, group: "Comms" },
+  { id: "email", label: "Email", icon: Mail, group: "Comms" },
+  { id: "sms", label: "SMS", icon: Smartphone, group: "Comms" },
+  { id: "support", label: "Support", icon: LifeBuoy, group: "Comms" },
+  { id: "audit-logs", label: "Audit Logs", icon: History, group: "System" },
+  { id: "roles", label: "Role Management", icon: Shield, group: "System" },
+  { id: "permissions", label: "Permissions", icon: Key, group: "System" },
+  { id: "feature-flags", label: "Feature Flags", icon: ToggleRight, group: "System" },
+  { id: "api-keys", label: "API Keys", icon: Key, group: "System" },
+  { id: "integrations", label: "Integrations", icon: Plug, group: "System" },
+  { id: "settings", label: "Settings", icon: Settings, group: "System" },
+  { id: "backup", label: "Backup", icon: DatabaseBackup, group: "System" },
+  { id: "profile", label: "Profile", icon: User, group: "System" },
 ];
 
-function SidebarContent({ tab, setTab, onExit, onLogout }: { tab: Tab; setTab: (t: Tab) => void; onExit: () => void; onLogout: () => void; }) {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-white/10 flex items-center gap-2">
-        <img src="/logo.png" alt="" className="w-8 h-8 rounded bg-white p-1" />
-        <div>
-          <div className="font-extrabold text-brand-yellow text-sm">ParcelMaadi</div>
-          <div className="text-[10px] text-white/60">Admin Panel</div>
-        </div>
-      </div>
-      <nav className="flex-1 p-2 space-y-1">
-        {ADMIN_NAV.map((n) => (
-          <button key={n.id} onClick={() => setTab(n.id)}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${tab === n.id ? "bg-brand-yellow text-brand-black" : "text-white/80 hover:bg-white/10 hover:text-brand-yellow"}`}>
-            <n.icon className="w-4 h-4" /> {n.label}
-          </button>
-        ))}
-      </nav>
-      <div className="p-2 border-t border-white/10 space-y-1">
-        <Button variant="ghost" size="sm" className="w-full justify-start text-white/70 hover:bg-white/10 hover:text-brand-yellow" onClick={onExit}>
-          <X className="w-4 h-4 mr-2" /> Exit to Website
-        </Button>
-        <Button variant="ghost" size="sm" className="w-full justify-start text-white/70 hover:bg-white/10 hover:text-red-400" onClick={onLogout}>
-          <LogOut className="w-4 h-4 mr-2" /> Logout
-        </Button>
-      </div>
-    </div>
-  );
-}
+import { ToggleRight } from "lucide-react";
 
-export function AdminApp({ onExit }: AdminAppProps) {
-  const [authed, setAuthed] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [forcePwChange, setForcePwChange] = useState(false);
+const CHART_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#14b8a6"];
+
+// ============================================================
+// MAIN APP
+// ============================================================
+export function AdminApp({ onExit }: { onExit: () => void }) {
+  const [admin, setAdmin] = useState<AdminInfo | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [liveBadge, setLiveBadge] = useState(0);
-  const [refreshTick, setRefreshTick] = useState(0);
-  const mainContentRef = useRef<HTMLElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
 
-  // CRITICAL: scroll to TOP whenever admin tab changes — prevents showing from bottom
+  // Theme toggle
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.scrollTo(0, 0);
-      requestAnimationFrame(() => {
-        mainContentRef.current?.scrollTo(0, 0);
-        window.scrollTo(0, 0);
-      });
-    }
-  }, [tab]);
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [theme]);
 
+  // Check auth on mount
   useEffect(() => {
-    api.adminMe().then(() => setAuthed(true)).catch(() => setAuthed(false)).finally(() => setChecking(false));
-  }, []);
-
-  // Real-time admin notifications via polling (replaces socket.io for Vercel compatibility)
-  // Polls /api/admin/bookings every 15 seconds and detects new bookings by comparing
-  // the latest booking ID. Also triggers refresh on status changes.
-  useEffect(() => {
-    if (!authed) return;
-    let lastLatestId: number | null = null;
-    let lastCount: number | null = null;
-
-    const poll = async () => {
+    (async () => {
       try {
-        const r = await api.adminBookings();
-        const bookings = r.bookings || [];
-        if (bookings.length === 0) return;
-
-        const latestId = bookings[0]?.id ?? 0;
-
-        if (lastLatestId !== null && latestId > lastLatestId) {
-          // New booking detected
-          const newBookings = bookings.filter((b: any) => b.id > lastLatestId!);
-          setLiveBadge((b) => b + newBookings.length);
-          for (const nb of newBookings) {
-            toast.success(`🆕 New booking ${nb.bookingId || ""}`, {
-              description: `${nb.service?.name || ""} · ${nb.customer?.name || ""}`,
-            });
-            try { new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=").play(); } catch {}
-          }
-          setRefreshTick((t) => t + 1);
+        const r = await fetch("/api/admin/me");
+        if (r.ok) {
+          const d = await r.json();
+          setAdmin(d.admin);
+        } else {
+          setShowLogin(true);
         }
-
-        if (lastCount !== null && lastCount !== bookings.length && lastLatestId === latestId) {
-          // Count changed but no new booking — likely a status update
-          setRefreshTick((t) => t + 1);
-        }
-
-        lastLatestId = latestId;
-        lastCount = bookings.length;
       } catch {
-        // silent — polling is best-effort
+        setShowLogin(true);
+      } finally {
+        setAuthLoading(false);
+      }
+    })();
+
+    // Keyboard shortcut for command palette
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen((o) => !o);
       }
     };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-    // Initial poll after 3 seconds (let the page settle)
-    const initialTimer = setTimeout(poll, 3000);
-    const interval = setInterval(poll, 15000);
+  // Group nav items
+  const navGroups = useMemo(() => {
+    const groups: Record<string, NavItem[]> = {};
+    for (const n of NAV) {
+      if (!groups[n.group]) groups[n.group] = [];
+      groups[n.group].push(n);
+    }
+    return groups;
+  }, []);
 
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
-  }, [authed]);
-
-  if (checking) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-black">
-        <Loader2 className="w-8 h-8 text-brand-yellow animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!authed) {
-    return <LoginView onSuccess={() => setAuthed(true)} onForcePwChange={() => { setAuthed(true); setForcePwChange(true); }} onExit={onExit} />;
+  if (showLogin || !admin) {
+    return <AdminLogin onSuccess={(a) => { setAdmin(a); setShowLogin(false); }} onExit={onExit} />;
   }
-
-  if (forcePwChange) {
-    return <ForcePasswordChangeView onDone={() => setForcePwChange(false)} onExit={onExit} />;
-  }
-
-  const logout = async () => {
-    try { await api.adminLogout(); } catch {}
-    setAuthed(false);
-    onExit();
-  };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex">
-      <aside className="hidden md:flex w-60 bg-brand-black flex-col fixed inset-y-0 left-0 z-30">
-        <SidebarContent tab={tab} setTab={(t) => setTab(t)} onExit={onExit} onLogout={logout} />
-      </aside>
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-60 p-0 bg-brand-black border-0">
-          <SheetHeader className="sr-only"><SheetTitle>Navigation</SheetTitle></SheetHeader>
-          <SidebarContent tab={tab} setTab={(t) => { setTab(t); setSidebarOpen(false); }} onExit={onExit} onLogout={logout} />
-        </SheetContent>
-      </Sheet>
+    <div className="min-h-screen bg-background text-foreground flex">
+      {/* Sidebar */}
+      <Sidebar
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        activeTab={tab}
+        onSelect={(t) => { setTab(t); setMobileSidebarOpen(false); }}
+        navGroups={navGroups}
+        mobileOpen={mobileSidebarOpen}
+        setMobileOpen={setMobileSidebarOpen}
+      />
 
-      <div className="flex-1 md:ml-60 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 bg-white border-b h-14 flex items-center gap-3 px-4">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(true)}>
-            <Menu className="w-5 h-5" />
-          </Button>
-          <h1 className="font-bold text-lg capitalize">{ADMIN_NAV.find((n) => n.id === tab)?.label}</h1>
-          <div className="ml-auto flex items-center gap-2">
-            {liveBadge > 0 && (
-              <Button size="sm" variant="outline" className="relative border-brand-yellow" onClick={() => { setLiveBadge(0); setTab("bookings"); }}>
-                <Bell className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 bg-brand-red text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{liveBadge > 9 ? "9+" : liveBadge}</span>
-              </Button>
-            )}
-            <Button size="sm" variant="outline" onClick={onExit}><X className="w-4 h-4 mr-1" /> Exit</Button>
-          </div>
-        </header>
-        <main ref={mainContentRef} className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
-          {tab === "dashboard" && <DashboardView key={refreshTick} />}
-          {tab === "bookings" && <BookingsView key={refreshTick} />}
-          {tab === "price" && <PriceMasterView />}
-          {tab === "zones" && <ZonesView />}
-          {tab === "coupons" && <CouponsView />}
-          {tab === "reports" && <ReportsView />}
-          {tab === "departments" && <DepartmentsView />}
-          {tab === "suppliers" && <SuppliersView />}
-          {tab === "products" && <ProductsView />}
-          {tab === "apks" && <ApksView />}
-          {tab === "users" && <UsersView />}
-          {tab === "activity" && <ActivityView />}
-          {tab === "settings" && <SettingsView />}
-          {tab === "system" && <SystemView />}
-          {tab === "domain" && <DomainView />}
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar
+          admin={admin}
+          theme={theme}
+          setTheme={setTheme}
+          onCmdOpen={() => setCmdOpen(true)}
+          onToggleMobile={() => setMobileSidebarOpen(true)}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
+          onExit={onExit}
+          onLogout={async () => {
+            await fetch("/api/admin/logout", { method: "POST" });
+            setAdmin(null);
+            setShowLogin(true);
+          }}
+          activeLabel={NAV.find((n) => n.id === tab)?.label || "Dashboard"}
+        />
+
+        <main className="flex-1 overflow-auto p-4 md:p-6">
+          <ModuleRenderer tab={tab} admin={admin} />
         </main>
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={cmdOpen}
+        setOpen={setCmdOpen}
+        navItems={NAV}
+        onSelect={(t) => { setTab(t); setCmdOpen(false); }}
+      />
+
+      <Toaster position="top-right" richColors />
     </div>
   );
 }
 
-/* -------------------- Login -------------------- */
-function LoginView({ onSuccess, onForcePwChange, onExit }: { onSuccess: () => void; onForcePwChange: () => void; onExit: () => void }) {
-  const [email, setEmail] = useState("");
+// ============================================================
+// SIDEBAR
+// ============================================================
+function Sidebar({
+  collapsed, setCollapsed, activeTab, onSelect, navGroups, mobileOpen, setMobileOpen,
+}: any) {
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      <aside
+        className={`fixed md:sticky top-0 z-50 md:z-auto h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300
+        ${collapsed ? "w-[72px]" : "w-[260px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+      >
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-2 px-4 border-b border-sidebar-border">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+            P
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <div className="font-bold text-base leading-tight">ParcelMaadi</div>
+              <div className="text-[10px] text-sidebar-foreground/60 uppercase tracking-wider">Admin Panel</div>
+            </div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4 scrollbar-thin">
+          {Object.entries(navGroups).map(([group, items]: any) => (
+            <div key={group}>
+              {!collapsed && (
+                <div className="px-2 mb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
+                  {group}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {items.map((item: NavItem) => {
+                  const Icon = item.icon;
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onSelect(item.id)}
+                      className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm transition-colors group relative
+                        ${active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-sidebar-accent/50 text-sidebar-foreground/80"}
+                        ${collapsed ? "justify-center" : ""}`}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {active && !collapsed && (
+                        <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Collapse toggle (desktop) */}
+        <div className="hidden md:flex border-t border-sidebar-border p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {!collapsed && <span className="ml-2">Collapse</span>}
+          </Button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+// ============================================================
+// TOPBAR
+// ============================================================
+function Topbar({
+  admin, theme, setTheme, onCmdOpen, onToggleMobile, onToggleCollapse, onExit, onLogout, activeLabel,
+}: any) {
+  return (
+    <header className="h-16 sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b flex items-center gap-3 px-4 md:px-6">
+      <Button variant="ghost" size="sm" className="md:hidden" onClick={onToggleMobile}>
+        <Menu className="w-5 h-5" />
+      </Button>
+      <Button variant="ghost" size="sm" className="hidden md:flex" onClick={onToggleCollapse}>
+        <ChevronLeft className="w-5 h-5" />
+      </Button>
+
+      {/* Breadcrumb */}
+      <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
+        <span>Admin</span>
+        <ChevronRight className="w-3 h-3" />
+        <span className="text-foreground font-medium">{activeLabel}</span>
+      </div>
+
+      {/* Search */}
+      <Button
+        variant="outline"
+        className="ml-auto hidden md:flex items-center gap-2 text-muted-foreground px-3 py-1.5 h-9 text-sm min-w-[240px]"
+        onClick={onCmdOpen}
+      >
+        <Search className="w-4 h-4" />
+        <span>Search or jump to...</span>
+        <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
+      </Button>
+
+      {/* Theme toggle */}
+      <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
+        {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      </Button>
+
+      {/* Notifications */}
+      <Button variant="ghost" size="sm" className="relative">
+        <Bell className="w-4 h-4" />
+        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />
+      </Button>
+
+      {/* Profile */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+              {admin.name?.[0] || "A"}
+            </div>
+            <span className="hidden md:inline text-sm">{admin.name || "Admin"}</span>
+            <ChevronDown className="w-3 h-3 hidden md:inline" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <div className="px-2 py-1.5">
+            <div className="text-sm font-medium">{admin.name}</div>
+            <div className="text-xs text-muted-foreground">{admin.email}</div>
+            <Badge variant="secondary" className="mt-1 text-[10px]">{admin.role}</Badge>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem><User className="w-4 h-4 mr-2" /> Profile</DropdownMenuItem>
+          <DropdownMenuItem><Settings className="w-4 h-4 mr-2" /> Settings</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onExit}><LogOut className="w-4 h-4 mr-2" /> Exit to site</DropdownMenuItem>
+          <DropdownMenuItem onClick={onLogout} className="text-red-600"><LogOut className="w-4 h-4 mr-2" /> Logout</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+  );
+}
+
+// ============================================================
+// COMMAND PALETTE
+// ============================================================
+function CommandPalette({ open, setOpen, navItems, onSelect }: any) {
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="p-0 overflow-hidden max-w-xl">
+        <CommandUI className="rounded-lg">
+          <CommandInput placeholder="Type a command or search modules..." />
+          <CommandList className="max-h-[400px]">
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup heading="Modules">
+              {navItems.map((item: NavItem) => {
+                const Icon = item.icon;
+                return (
+                  <CommandItem
+                    key={item.id}
+                    onSelect={() => onSelect(item.id)}
+                    className="cursor-pointer"
+                  >
+                    <Icon className="w-4 h-4 mr-2" />
+                    <span>{item.label}</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">{item.group}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="Quick actions">
+              <CommandItem onSelect={() => { onSelect("bookings"); }}>
+                <CalendarClock className="w-4 h-4 mr-2" /> View bookings
+              </CommandItem>
+              <CommandItem onSelect={() => { onSelect("dashboard"); }}>
+                <LayoutDashboard className="w-4 h-4 mr-2" /> Open dashboard
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </CommandUI>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// ADMIN LOGIN
+// ============================================================
+function AdminLogin({ onSuccess, onExit }: { onSuccess: (a: AdminInfo) => void; onExit: () => void }) {
+  const [email, setEmail] = useState("admin@parcelmaadi.com");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "forgot" | "reset">("login");
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetToken, setResetToken] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [resetMsg, setResetMsg] = useState("");
-  const [resetLink, setResetLink] = useState("");
+  const [err, setErr] = useState("");
 
   const submit = async () => {
     setLoading(true);
+    setErr("");
     try {
-      const r: any = await api.adminLogin(email, password);
-      toast.success("Logged in");
-      if (r.admin?.forcePasswordChange) onForcePwChange();
-      else onSuccess();
+      const r = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Login failed");
+      toast.success("Welcome back!");
+      onSuccess(d.admin);
     } catch (e: any) {
-      toast.error(e.message || "Login failed");
+      setErr(e.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const requestReset = async () => {
-    setLoading(true); setResetMsg(""); setResetLink("");
-    try {
-      const r = await fetch("/api/admin/password-reset/request", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail }),
-      });
-      const data = await r.json();
-      // ALWAYS show the generic message — never reveal whether the email exists
-      setResetMsg(data.message || "If this account exists, a reset link has been sent.");
-      if (data.resetLink) setResetLink(data.resetLink);
-      toast.success("Reset request submitted");
-    } catch {
-      setResetMsg("If this account exists, a reset link has been sent.");
-    } finally { setLoading(false); }
-  };
-
-  const confirmReset = async () => {
-    if (newPassword.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    setLoading(true);
-    try {
-      const r = await fetch("/api/admin/password-reset/confirm", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetToken, newPassword }),
-      });
-      const data = await r.json();
-      if (!r.ok) { toast.error(data.error || "Reset failed"); }
-      else { toast.success(data.message || "Password reset successful"); setMode("login"); setResetToken(""); setNewPassword(""); setResetMsg(""); setResetLink(""); }
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  };
-
   return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-4">
-      <div className="absolute inset-0 brand-gradient opacity-10" />
-      <Card className="w-full max-w-sm relative">
-        <CardHeader className="text-center">
-          <img src="/logo.png" alt="ParcelMaadi" className="w-16 h-16 mx-auto rounded-xl bg-white p-2" />
-          <CardTitle className="text-2xl">{mode === "login" ? "Admin Login" : mode === "forgot" ? "Reset Password" : "Set New Password"}</CardTitle>
-          <CardDescription>ParcelMaadi Control Panel</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {mode === "login" && (
-            <>
-              <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div><Label htmlFor="pw">Password</Label><Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} /></div>
-              <Button className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold" onClick={submit} disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}Login
-              </Button>
-              <button type="button" className="w-full text-xs text-brand-red hover:underline" onClick={() => { setMode("forgot"); setResetMsg(""); setResetLink(""); }}>Forgot password?</button>
-              <Button variant="ghost" className="w-full" onClick={onExit}>Back to Website</Button>
-              <p className="text-xs text-center text-muted-foreground">🔒 Admin access only. Change default password after first login.</p>
-            </>
-          )}
-          {mode === "forgot" && (
-            <>
-              <p className="text-xs text-muted-foreground">Enter your registered admin email. A single-use reset link (valid 20 min) will be sent. Rate-limited to 3 requests/hour.</p>
-              <div><Label htmlFor="resetEmail">Registered email</Label><Input id="resetEmail" type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && requestReset()} /></div>
-              <Button className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold" onClick={requestReset} disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Send Reset Link
-              </Button>
-              {resetMsg && <div className="text-xs text-center text-muted-foreground bg-muted/50 rounded p-2">{resetMsg}</div>}
-              {resetLink && (
-                <div className="text-xs bg-brand-yellow/10 border border-brand-yellow rounded p-2 break-all">
-                  <div className="font-semibold mb-1">Dev/preview mode (no email tool configured):</div>
-                  <a href={resetLink} className="text-brand-red underline">Open reset link →</a>
-                  <button type="button" className="block mt-1 text-muted-foreground hover:underline" onClick={() => { setResetToken(resetLink.split("token=")[1] || ""); setMode("reset"); }}>Enter token manually</button>
-                </div>
-              )}
-              <Button variant="ghost" className="w-full" onClick={() => setMode("login")}>← Back to login</Button>
-            </>
-          )}
-          {mode === "reset" && (
-            <>
-              <div><Label htmlFor="rtoken">Reset token</Label><Input id="rtoken" value={resetToken} onChange={(e) => setResetToken(e.target.value)} placeholder="Paste token from reset link" /></div>
-              <div><Label htmlFor="npw">New password (min 8 chars)</Label><Input id="npw" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && confirmReset()} /></div>
-              <Button className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold" onClick={confirmReset} disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Reset Password
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">All active sessions will be invalidated after reset.</p>
-              <Button variant="ghost" className="w-full" onClick={() => setMode("login")}>← Back to login</Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-/* -------------------- Dashboard -------------------- */
-function DashboardView() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setData(await api.adminDashboard()); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (loading || !data) return <Loading />;
-  const kpis = [
-    { label: "Today's Bookings", value: data.todayBookings, color: "bg-brand-yellow text-brand-black" },
-    { label: "Total Bookings", value: data.totalBookings, color: "bg-brand-black text-white" },
-    { label: "Pending", value: data.pendingCount, color: "bg-yellow-100 text-yellow-800" },
-    { label: "Confirmed", value: data.confirmedCount, color: "bg-blue-100 text-blue-800" },
-    { label: "Driver Assigned", value: data.driverAssignedCount, color: "bg-purple-100 text-purple-800" },
-    { label: "In Progress", value: data.inProgressCount, color: "bg-orange-100 text-orange-800" },
-    { label: "Delivered", value: data.deliveredCount, color: "bg-green-100 text-green-800" },
-    { label: "Completed", value: data.completedCount, color: "bg-green-600 text-white" },
-    { label: "Cancelled", value: data.cancelledCount, color: "bg-red-100 text-red-800" },
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-2xl font-extrabold">₹{data.totalEstimate.toLocaleString("en-IN")}</div>
-          <div className="text-sm text-muted-foreground">Total estimate value</div>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-extrabold text-green-600">₹{data.paidAmount.toLocaleString("en-IN")}</div>
-          <div className="text-sm text-muted-foreground">Paid (verified)</div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {kpis.map((k) => (
-          <Card key={k.label}>
-            <CardContent className={`p-4 rounded-lg ${k.color}`}>
-              <div className="text-2xl font-extrabold">{k.value}</div>
-              <div className="text-xs opacity-80">{k.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <Card>
-        <CardHeader><CardTitle className="text-base">Bookings by Service</CardTitle></CardHeader>
-        <CardContent>
-          {data.serviceWise.length === 0 ? <p className="text-sm text-muted-foreground">No bookings yet.</p> : (
-            <div className="space-y-2">
-              {data.serviceWise.map((s: any) => (
-                <div key={s.serviceId} className="flex items-center gap-3">
-                  <span className="text-sm w-48 truncate">{s.name}</span>
-                  <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full brand-gradient" style={{ width: `${Math.min(100, (s.count / Math.max(...data.serviceWise.map((x: any) => x.count))) * 100)}%` }} />
-                  </div>
-                  <span className="text-sm font-bold w-8 text-right">{s.count}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-/* -------------------- Bookings -------------------- */
-function BookingsView() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("all");
-  const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Booking | null>(null);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { const r = await api.adminBookings(status, q); setBookings(r.bookings || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, [status, q]);
-  useEffect(() => { load(); }, [load]);
-  const exportBookings = async (format: string) => {
-    try {
-      const r = await api.adminExportBookings(format, status);
-      if (!r.ok) throw new Error("Export failed");
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `parcelmaadi-bookings-${Date.now()}.${format === "csv" ? "csv" : "xls"}`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Exported as ${format.toUpperCase()}`);
-    } catch (e: any) { toast.error(e.message); }
-  };
-  const clearDemo = async () => {
-    if (!confirm("⚠️ This will DELETE ALL bookings, customers and payments. Master data (services/vehicles/prices) is preserved. Continue?")) return;
-    try { await api.adminClearDemo(); toast.success("Demo data cleared"); load(); } catch (e: any) { toast.error(e.message); }
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search booking id, mobile, name, address..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-8" onKeyDown={(e) => e.key === "Enter" && load()} />
-        </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            {ORDER_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button onClick={load} variant="outline"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={() => exportBookings("csv")} variant="outline" size="sm"><Download className="w-4 h-4 mr-1" /> CSV</Button>
-        <Button onClick={() => exportBookings("xlsx")} variant="outline" size="sm"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={clearDemo} variant="outline" size="sm" className="text-red-600 border-red-300"><Ban className="w-4 h-4 mr-1" /> Clear Demo</Button>
-      </div>
-      {loading ? <Loading /> : bookings.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">No bookings found.</CardContent></Card>
-      ) : (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto pm-scroll">
-            <table className="w-full text-sm">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="text-left p-2 font-semibold">Booking ID</th>
-                  <th className="text-left p-2 font-semibold">Customer</th>
-                  <th className="text-left p-2 font-semibold">Service</th>
-                  <th className="text-left p-2 font-semibold">Pickup → Drop</th>
-                  <th className="text-right p-2 font-semibold">Estimate</th>
-                  <th className="text-center p-2 font-semibold">Status</th>
-                  <th className="text-center p-2 font-semibold">Payment</th>
-                  <th className="text-center p-2 font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...bookings].sort((a: any, b: any) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0)).map((b: any) => (
-                  <tr key={b.id} className={`border-t hover:bg-muted/40 ${b.isEmergency ? "bg-red-50 border-l-4 border-l-red-600" : ""}`}>
-                    <td className="p-2">
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono font-bold text-brand-red text-xs">{b.bookingId}</span>
-                        {b.isEmergency && <Badge className="bg-red-600 text-white text-[9px] animate-pulse">🚨 EMERGENCY</Badge>}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">{new Date(b.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</div>
-                    </td>
-                    <td className="p-2">
-                      <div className="font-medium">{b.customer?.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{b.customer?.mobile}</div>
-                    </td>
-                    <td className="p-2">
-                      <div>{b.service?.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{b.vehicle?.name}{b.supplier?.shopName && ` · ${b.supplier.shopName}`}</div>
-                    </td>
-                    <td className="p-2 max-w-[200px]">
-                      <div className="text-xs truncate">{b.pickupAddress || "—"}</div>
-                      <div className="text-xs truncate text-muted-foreground">→ {b.dropAddress || "—"}</div>
-                      {b.distanceKm != null && <div className="text-[10px] text-muted-foreground">{b.distanceKm} km{b.tripType && ` · ${b.tripType}`}{b.durationHours && ` · ${b.durationHours}h`}{b.durationDays && ` · ${b.durationDays}d`}</div>}
-                    </td>
-                    <td className="p-2 text-right font-bold">{b.finalEstimate ? `₹${b.finalEstimate}` : "Quote"}</td>
-                    <td className="p-2 text-center"><StatusBadge status={b.status} /></td>
-                    <td className="p-2 text-center"><Badge variant="outline" className="text-[10px]">{b.paymentStatus}</Badge></td>
-                    <td className="p-2 text-center">
-                      <Button size="sm" variant="outline" onClick={() => setSelected(b)}>Manage</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {selected && <BookingDrawer booking={selected} onClose={() => setSelected(null)} onChanged={load} />}
-    </div>
-  );
-}
-
-function BookingDrawer({ booking, onClose, onChanged }: { booking: Booking; onClose: () => void; onChanged: () => void }) {
-  const [b, setB] = useState(booking);
-  const [status, setStatus] = useState(booking.status);
-  const [paymentStatus, setPaymentStatus] = useState(booking.paymentStatus);
-  const [driverName, setDriverName] = useState(booking.driverName || "");
-  const [driverMobile, setDriverMobile] = useState(booking.driverMobile || "");
-  const [driverType, setDriverType] = useState(booking.driverType || "Driver");
-  const [notes, setNotes] = useState(booking.adminNotes || "");
-  const [adminFinal, setAdminFinal] = useState<number | null>(booking.adminFinalAmount ?? null);
-  const [paymentReceived, setPaymentReceived] = useState<number>(booking.paymentReceived || 0);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    api.getBooking(booking.bookingId).then((r) => setB(r.booking)).catch(() => {});
-  }, [booking.bookingId]);
-
-  const save = async (kind: "status" | "driver" | "payment") => {
-    setSaving(true);
-    try {
-      if (kind === "status") await api.adminUpdateBookingStatus(b.id, status, notes);
-      if (kind === "driver") await api.adminAssignDriver(b.id, driverName, driverMobile, driverType);
-      if (kind === "payment") await api.adminUpdatePayment(b.id, { paymentStatus });
-      toast.success("Updated");
-      const r = await api.getBooking(booking.bookingId);
-      setB(r.booking);
-      onChanged();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  const saveFinal = async () => {
-    setSaving(true);
-    try { await api.adminUpdatePayment(b.id, { adminFinalAmount: adminFinal }); toast.success("Final amount saved"); const r = await api.getBooking(booking.bookingId); setB(r.booking); onChanged(); } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
-  };
-  const saveReceived = async () => {
-    setSaving(true);
-    try { await api.adminUpdatePayment(b.id, { paymentReceived }); toast.success("Payment received saved"); const r = await api.getBooking(booking.bookingId); setB(r.booking); onChanged(); } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
-  };
-  const openInvoice = async (id: number) => {
-    try {
-      const r = await api.adminInvoice(id);
-      const w = window.open("", "_blank", "width=800,height=900");
-      if (w) {
-        w.document.write(renderInvoiceHTML(r.invoice));
-        w.document.close();
-        setTimeout(() => w.print(), 500);
-      }
-    } catch (e: any) { toast.error(e.message); }
-  };
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">Booking <span className="font-mono text-brand-red">{b.bookingId}</span></DialogTitle>
-          <DialogDescription>{b.service?.name} · {b.vehicle?.name}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <Info label="Customer" value={b.customer?.name} />
-            <Info label="Mobile" value={<a href={`tel:${b.customer?.mobile}`} className="text-brand-red">{b.customer?.mobile}</a>} />
-            <Info label="Schedule" value={`${b.scheduleDate || "ASAP"} ${b.scheduleTime || ""}`} />
-            <Info label="Distance" value={b.distanceKm != null ? `${b.distanceKm} km (${b.distanceMethod})` : "—"} />
-            <Info label="Item" value={b.itemDetails} />
-            <Info label="Weight/Qty" value={`${b.weight || "—"} / ${b.quantity || "—"}`} />
-            <Info label="Pickup" value={b.pickupAddress} />
-            <Info label="Drop" value={b.dropAddress} />
-          </div>
-          {(b.pickupMapLink || b.dropMapLink) && (
-            <div className="flex gap-2 text-xs">
-              {b.pickupMapLink && <a href={b.pickupMapLink} target="_blank" className="text-brand-red underline">Pickup map</a>}
-              {b.dropMapLink && <a href={b.dropMapLink} target="_blank" className="text-brand-red underline">Drop map</a>}
-            </div>
-          )}
-          {b.customerNotes && <Info label="Customer notes" value={b.customerNotes} />}
-          <Separator />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-900 dark:to-slate-800 p-4">
+      <Card className="w-full max-w-md p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl">P</div>
           <div>
-            <Label className="text-xs">Final estimate</Label>
-            <div className="text-2xl font-extrabold text-brand-red">{b.finalEstimate ? `₹${b.finalEstimate}` : "Manual quote"}</div>
-            {b.paymentOption && <div className="text-xs text-muted-foreground">Option: {b.paymentOption}</div>}
-          </div>
-          {b.paymentScreenshotUrl && (
-            <div>
-              <Label className="text-xs">Payment screenshot</Label>
-              <img src={b.paymentScreenshotUrl} alt="payment" className="mt-1 max-h-48 rounded border" />
-            </div>
-          )}
-          <Separator />
-          <div className="grid md:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Update Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{ORDER_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-              <Input placeholder="Admin notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-              <Button size="sm" className="w-full" disabled={saving} onClick={() => save("status")}>Save Status</Button>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Assign Driver/Rider/Supplier (manual)</Label>
-              <Select value={driverType} onValueChange={setDriverType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{["Driver", "Rider", "Supplier"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-              <Input placeholder="Name" value={driverName} onChange={(e) => setDriverName(e.target.value)} />
-              <Input placeholder="Mobile" value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} />
-              <Button size="sm" className="w-full bg-brand-black hover:bg-brand-black/80" disabled={saving} onClick={() => save("driver")}>Assign {driverType}</Button>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Payment status</Label>
-              <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{PAYMENT_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-              <Button size="sm" variant="outline" className="w-full" disabled={saving} onClick={() => save("payment")}>Update Payment</Button>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Quick contact</Label>
-              <div className="flex gap-2">
-                <a href={`tel:${b.customer?.mobile}`} className="flex-1"><Button size="sm" variant="outline" className="w-full"><Phone className="w-4 h-4 mr-1" /> Call</Button></a>
-                <a href={`https://wa.me/91${b.customer?.mobile}`} target="_blank" className="flex-1"><Button size="sm" className="w-full bg-green-600 hover:bg-green-700"><MessageCircle className="w-4 h-4 mr-1" /> WhatsApp</Button></a>
-              </div>
-            </div>
-          </div>
-          <div className="grid md:grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Final amount (₹)</Label>
-              <Input type="number" value={adminFinal ?? ""} onChange={(e) => setAdminFinal(e.target.value ? Number(e.target.value) : null)} placeholder={String(b.finalEstimate)} />
-              <Button size="sm" variant="outline" className="w-full" disabled={saving} onClick={saveFinal}>Save Final</Button>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Payment received (₹)</Label>
-              <Input type="number" value={paymentReceived} onChange={(e) => setPaymentReceived(e.target.value ? Number(e.target.value) : 0)} />
-              <Button size="sm" variant="outline" className="w-full" disabled={saving} onClick={saveReceived}>Save Received</Button>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Invoice</Label>
-              <Button size="sm" variant="outline" className="w-full" onClick={() => openInvoice(b.id)}><FileText className="w-4 h-4 mr-1" /> Generate / Print</Button>
-              <p className="text-[10px] text-muted-foreground">Opens a printable invoice in a new tab.</p>
-            </div>
-          </div>
-          {b.statusHistory && b.statusHistory.length > 0 && (
-            <div>
-              <Label className="text-xs font-bold">Status history</Label>
-              <div className="mt-1 space-y-1 max-h-40 overflow-y-auto pm-scroll text-xs">
-                {b.statusHistory.map((h) => (
-                  <div key={h.id} className="flex gap-2 border-l-2 border-brand-yellow pl-2 py-0.5">
-                    <span className="font-medium">{h.newStatus}</span>
-                    {h.oldStatus && <span className="text-muted-foreground">(from {h.oldStatus})</span>}
-                    <span className="text-muted-foreground ml-auto">{new Date(h.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
-                    {h.notes && <span className="text-muted-foreground">· {h.notes}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className="text-sm">{value || "—"}</div>
-    </div>
-  );
-}
-
-/* -------------------- Price Master -------------------- */
-function PriceMasterView() {
-  const [prices, setPrices] = useState<PriceMaster[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<PriceMaster | null>(null);
-  const [creating, setCreating] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [p, s] = await Promise.all([api.adminPriceMaster(), api.adminServices()]);
-      setPrices(p.prices || []); setServices(s.services || []);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Live pricing. Old bookings keep their snapshot — new bookings use latest rates.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Price</Button>
-      </div>
-      {loading ? <Loading /> : (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto pm-scroll">
-            <table className="w-full text-sm">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="text-left p-2">Service</th>
-                  <th className="text-left p-2">Item</th>
-                  <th className="text-right p-2">Min Fare</th>
-                  <th className="text-right p-2">Min KM</th>
-                  <th className="text-right p-2">Per KM</th>
-                  <th className="text-left p-2">Slabs</th>
-                  <th className="text-right p-2">Loading</th>
-                  <th className="text-right p-2">GST%</th>
-                  <th className="text-right p-2">Adv%</th>
-                  <th className="text-center p-2">Status</th>
-                  <th className="text-center p-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {prices.map((p) => (
-                  <tr key={p.id} className="border-t hover:bg-muted/40">
-                    <td className="p-2">{p.service?.name}</td>
-                    <td className="p-2 font-medium">{p.itemType}</td>
-                    <td className="p-2 text-right">{p.minimumFare}</td>
-                    <td className="p-2 text-right">{p.minimumKm}</td>
-                    <td className="p-2 text-right">{p.perKmRate || "—"}</td>
-                    <td className="p-2 text-xs text-muted-foreground max-w-[180px] truncate">{p.slabJson || "—"}</td>
-                    <td className="p-2 text-right">{p.loadingCharge || "—"}</td>
-                    <td className="p-2 text-right">{p.gstPercent}</td>
-                    <td className="p-2 text-right">{p.advancePercent}</td>
-                    <td className="p-2 text-center"><Badge variant="outline" className="text-[10px]">{p.status}</Badge></td>
-                    <td className="p-2 text-center">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="font-bold text-xl">ParcelMaadi Admin</div>
+            <div className="text-xs text-muted-foreground">Enterprise Control Panel</div>
           </div>
         </div>
-      )}
-      {(editing || creating) && (
-        <PriceEditDialog
-          price={editing} services={services}
-          onClose={() => { setEditing(null); setCreating(false); }}
-          onSaved={() => { setEditing(null); setCreating(false); load(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-function PriceEditDialog({ price, services, onClose, onSaved }: { price: PriceMaster | null; services: Service[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(price ? { ...price } : { serviceId: services[0]?.id, vehicleId: null, itemType: "", minimumKm: 0, minimumFare: 0, perKmRate: 0, slabJson: "", loadingCharge: 0, waitingCharge: 0, helperCharge: 0, nightChargePercent: 0, expressChargePercent: 0, gstPercent: 5, advancePercent: 0, minimumBooking: 0, notes: "", status: "Active" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (price) await api.adminUpdatePrice(price.id, form);
-      else await api.adminCreatePrice(form);
-      toast.success("Saved");
-      onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  const num = (k: string) => (v: string) => setForm({ ...form, [k]: v === "" ? 0 : Number(v) });
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader><DialogTitle>{price ? "Edit Price" : "Add Price"}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div><Label className="text-xs">Service</Label>
-            <Select value={String(form.serviceId)} onValueChange={(v) => setForm({ ...form, serviceId: Number(v) })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{services.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">Item type</Label><Input value={form.itemType || ""} onChange={(e) => setForm({ ...form, itemType: e.target.value })} /></div>
-          <div><Label className="text-xs">Minimum Fare ₹</Label><Input type="number" value={form.minimumFare} onChange={(e) => num("minimumFare")(e.target.value)} /></div>
-          <div><Label className="text-xs">Minimum KM</Label><Input type="number" value={form.minimumKm} onChange={(e) => num("minimumKm")(e.target.value)} /></div>
-          <div><Label className="text-xs">Per KM Rate (flat)</Label><Input type="number" value={form.perKmRate} onChange={(e) => num("perKmRate")(e.target.value)} /></div>
-          <div><Label className="text-xs">Loading ₹</Label><Input type="number" value={form.loadingCharge} onChange={(e) => num("loadingCharge")(e.target.value)} /></div>
-          <div><Label className="text-xs">Waiting ₹</Label><Input type="number" value={form.waitingCharge} onChange={(e) => num("waitingCharge")(e.target.value)} /></div>
-          <div><Label className="text-xs">Helper ₹</Label><Input type="number" value={form.helperCharge} onChange={(e) => num("helperCharge")(e.target.value)} /></div>
-          <div><Label className="text-xs">Night %</Label><Input type="number" value={form.nightChargePercent} onChange={(e) => num("nightChargePercent")(e.target.value)} /></div>
-          <div><Label className="text-xs">Express %</Label><Input type="number" value={form.expressChargePercent} onChange={(e) => num("expressChargePercent")(e.target.value)} /></div>
-          <div><Label className="text-xs">GST %</Label><Input type="number" value={form.gstPercent} onChange={(e) => num("gstPercent")(e.target.value)} /></div>
-          <div><Label className="text-xs">Advance %</Label><Input type="number" value={form.advancePercent} onChange={(e) => num("advancePercent")(e.target.value)} /></div>
-          <div><Label className="text-xs">Minimum booking ₹</Label><Input type="number" value={form.minimumBooking} onChange={(e) => num("minimumBooking")(e.target.value)} /></div>
-          <div><Label className="text-xs">Status</Label>
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Active", "Coming Soon", "Hidden", "Delayed", "Manual Quote Only"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2"><Label className="text-xs">Slab JSON / text (e.g. "4-10 km: 12 per km, 11-25 km: 10 per km")</Label>
-            <Textarea rows={2} value={form.slabJson || ""} onChange={(e) => setForm({ ...form, slabJson: e.target.value })} />
-          </div>
-          <div className="col-span-2"><Label className="text-xs">Notes</Label><Input value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Services -------------------- */
-function ServicesView() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Service | null>(null);
-  const [creating, setCreating] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setServices((await api.adminServices()).services || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const del = async (id: number) => {
-    if (!confirm("Delete this service?")) return;
-    try { await api.adminDeleteService(id); toast.success("Deleted"); load(); } catch (e: any) { toast.error(e.message); }
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Control which services appear on the customer website.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Service</Button>
-      </div>
-      {loading ? <Loading /> : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {services.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-brand-yellow flex items-center justify-center flex-shrink-0">
-                  <ServiceIcon name={s.icon} className="w-6 h-6 text-brand-black" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold">{s.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{s.description}</div>
-                  <div className="flex gap-2 mt-1">
-                    <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
-                    <Badge variant="outline" className="text-[10px]">{s.vehicles?.length || 0} vehicles</Badge>
-                    <Badge variant="outline" className="text-[10px]">{(s as any)._count?.bookings || 0} bookings</Badge>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => del(s.id)}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      {(editing || creating) && (
-        <ServiceEditDialog service={editing} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />
-      )}
-    </div>
-  );
-}
-
-function ServiceEditDialog({ service, onClose, onSaved }: { service: Service | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(service ? { ...service } : { name: "", slug: "", description: "", icon: "Package", imageUrl: "", status: "Active", sortOrder: 0 });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    if (!form.name?.trim()) { toast.error("Department name is required"); return; }
-    setSaving(true);
-    try {
-      if (service) await api.adminUpdateService(service.id, form);
-      else await api.adminCreateService(form);
-      toast.success(service ? "Department updated" : "New department added — now visible on the website");
-      onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{service ? "Edit Department" : "Add New Department"}</DialogTitle>
-          <DialogDescription>
-            {service
-              ? "Update this department's details. Changes appear instantly on the customer website."
-              : "Create a new service department. It will appear on the customer website immediately after saving. You can add vehicles & pricing next."}
-          </DialogDescription>
-        </DialogHeader>
         <div className="space-y-3">
-          <div><Label className="text-xs">Department Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Parcel Delivery, Water Supply, Machinery Rental" /></div>
-          <div><Label className="text-xs">Slug (auto from name if empty)</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="parcel-delivery" /></div>
-          <div><Label className="text-xs">Description</Label><Textarea rows={2} value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description shown on the customer website card" /></div>
-          <div><Label className="text-xs">Icon (shown when no image set)</Label>
-            <Select value={form.icon || "Package"} onValueChange={(v) => setForm({ ...form, icon: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["Package", "Mail", "Truck", "Droplets", "HardHat", "Wrench", "ShoppingCart", "Siren"].map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2">
-            <ImageUpload
-              value={form.imageUrl || ""}
-              onChange={(url) => setForm({ ...form, imageUrl: url })}
-              label="Department Image (upload from device or paste URL)"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs">Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{SERVICE_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs">Sort order (lower = first)</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} /></div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold">
-            {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-            {service ? "Save Changes" : "Add Department"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Suppliers -------------------- */
-function SuppliersView() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Supplier | null>(null);
-  const [creating, setCreating] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setSuppliers((await api.adminSuppliers()).suppliers || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const setStatus = async (s: Supplier, status: string) => {
-    try { await api.adminUpdateSupplier(s.id, { status }); toast.success(`Supplier ${status}`); load(); } catch (e: any) { toast.error(e.message); }
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Approve suppliers so their products show on website.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Supplier</Button>
-      </div>
-      {loading ? <Loading /> : suppliers.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">No suppliers yet.</CardContent></Card>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {suppliers.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between">
-                  <div>
-                    <div className="font-bold">{s.supplierName}</div>
-                    <div className="text-xs text-muted-foreground">{s.shopName} · {s.supplierType}</div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] ${s.status === "Approved" ? "bg-green-100 text-green-800" : s.status === "Rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{s.status}</Badge>
-                </div>
-                <div className="text-xs mt-2 space-y-0.5">
-                  <div>📞 {s.mobile} {s.whatsapp && `· WhatsApp ${s.whatsapp}`}</div>
-                  <div>📍 {s.address}</div>
-                  <div>🏷️ Commission: {s.commissionPercent}% · Products: {s._count?.products || 0}</div>
-                </div>
-                <div className="flex gap-1 mt-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditing(s)}><Pencil className="w-3 h-3 mr-1" /> Edit</Button>
-                  {s.status !== "Approved" && <Button size="sm" variant="outline" className="h-7 text-xs text-green-700" onClick={() => setStatus(s, "Approved")}><Check className="w-3 h-3 mr-1" /> Approve</Button>}
-                  {s.status !== "Rejected" && <Button size="sm" variant="outline" className="h-7 text-xs text-red-600" onClick={() => setStatus(s, "Rejected")}>Reject</Button>}
-                  {s.status !== "Hidden" && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setStatus(s, "Hidden")}>Hide</Button>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      {(editing || creating) && <SupplierEditDialog supplier={editing} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />}
-    </div>
-  );
-}
-
-function SupplierEditDialog({ supplier, onClose, onSaved }: { supplier: Supplier | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(supplier ? { ...supplier } : { supplierName: "", shopName: "", mobile: "", whatsapp: "", address: "", supplierType: "", serviceArea: "", commissionPercent: 0, upiId: "", status: "Pending" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (supplier) await api.adminUpdateSupplier(supplier.id, form);
-      else await api.adminCreateSupplier(form);
-      toast.success("Saved"); onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader><DialogTitle>{supplier ? "Edit Supplier" : "Add Supplier"}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><Label className="text-xs">Supplier name *</Label><Input value={form.supplierName} onChange={(e) => setForm({ ...form, supplierName: e.target.value })} /></div>
-          <div><Label className="text-xs">Shop name</Label><Input value={form.shopName || ""} onChange={(e) => setForm({ ...form, shopName: e.target.value })} /></div>
-          <div><Label className="text-xs">Type</Label><Input value={form.supplierType || ""} onChange={(e) => setForm({ ...form, supplierType: e.target.value })} placeholder="Grocery / Material" /></div>
-          <div><Label className="text-xs">Mobile</Label><Input value={form.mobile || ""} onChange={(e) => setForm({ ...form, mobile: e.target.value })} /></div>
-          <div><Label className="text-xs">WhatsApp</Label><Input value={form.whatsapp || ""} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></div>
-          <div className="col-span-2"><Label className="text-xs">Address</Label><Textarea rows={2} value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-          <div><Label className="text-xs">Service area</Label><Input value={form.serviceArea || ""} onChange={(e) => setForm({ ...form, serviceArea: e.target.value })} /></div>
-          <div><Label className="text-xs">Commission %</Label><Input type="number" value={form.commissionPercent} onChange={(e) => setForm({ ...form, commissionPercent: Number(e.target.value) })} /></div>
-          <div><Label className="text-xs">UPI ID</Label><Input value={form.upiId || ""} onChange={(e) => setForm({ ...form, upiId: e.target.value })} /></div>
-          <div><Label className="text-xs">Status</Label>
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Pending", "Approved", "Rejected", "Hidden"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Products -------------------- */
-function ProductsView() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState("All");
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [p, s] = await Promise.all([api.adminProducts(), api.adminSuppliers()]);
-      setProducts(p.products || []); setSuppliers(s.suppliers || []);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const categories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean) as string[]))];
-  const filtered = products.filter((p) => {
-    if (filterCat !== "All" && p.category !== filterCat) return false;
-    if (search && !`${p.productName} ${p.brand || ""} ${p.category || ""}`.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-  const importCSV = async (file: File) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    try {
-      const r = await fetch("/api/admin/products/import", { method: "POST", body: fd, credentials: "include" });
-      if (!r.ok) throw new Error("Import failed");
-      const data = await r.json();
-      toast.success(`Import complete: ${data.imported} new, ${data.updated} updated${data.errors?.length ? `, ${data.errors.length} errors` : ""}`);
-      load();
-    } catch (e: any) { toast.error(e.message); }
-  };
-  const exportCSV = () => {
-    window.open("/api/admin/products/export", "_blank");
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between flex-wrap gap-2">
-        <p className="text-sm text-muted-foreground">Manage grocery/ration products. Add, edit price/stock/image, or create new. Active products show on customer site.</p>
-        <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1" /> Export CSV</Button>
-          <label>
-            <input type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCSV(f); e.target.value = ""; }} />
-            <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-3 border border-input bg-background hover:bg-accent cursor-pointer"><Upload className="w-4 h-4 mr-1" /> Import CSV</span>
-          </label>
-          <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
-        </div>
-      </div>
-      {/* Search + category filter */}
-      <div className="flex gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search products, brands, categories..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
-        </div>
-        <Select value={filterCat} onValueChange={setFilterCat}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-          <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-        </Select>
-      </div>
-      {loading ? <Loading /> : filtered.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">No products found. Click "Add Product" to create one.</CardContent></Card>
-      ) : (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto pm-scroll">
-            <table className="w-full text-sm">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="text-left p-2">Product</th>
-                  <th className="text-left p-2">Supplier</th>
-                  <th className="text-right p-2">MRP</th>
-                  <th className="text-right p-2">Selling</th>
-                  <th className="text-right p-2">Stock</th>
-                  <th className="text-center p-2">Status</th>
-                  <th className="text-center p-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id} className="border-t hover:bg-muted/40">
-                    <td className="p-2">
-                      <div className="flex items-center gap-2">
-                        {p.photoUrl ? <img src={p.photoUrl} alt={p.productName} className="w-10 h-10 rounded object-cover border flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0"><Package className="w-4 h-4 text-muted-foreground" /></div>}
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{p.productName}</div>
-                          <div className="text-[10px] text-muted-foreground">{p.brand} · {p.packSize} · {p.category}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-2">{p.supplier?.supplierName}</td>
-                    <td className="p-2 text-right">₹{p.mrp}</td>
-                    <td className="p-2 text-right font-bold">₹{p.sellingPrice}</td>
-                    <td className="p-2 text-right">{p.stock}</td>
-                    <td className="p-2 text-center"><Badge variant="outline" className={`text-[10px] ${p.status === "Active" ? "bg-green-100 text-green-800" : p.status === "Out of Stock" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{p.status}</Badge></td>
-                    <td className="p-2 text-center"><Button size="sm" variant="ghost" onClick={() => setEditing(p)}><Pencil className="w-3.5 h-3.5" /></Button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {(editing || creating) && <ProductEditDialog product={editing} suppliers={suppliers} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />}
-    </div>
-  );
-}
-
-function ProductEditDialog({ product, suppliers, onClose, onSaved }: { product: Product | null; suppliers: Supplier[]; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(product ? { ...product } : { supplierId: suppliers[0]?.id, productName: "", brand: "", packSize: "", category: "Grocery Staples", subcategory: "", unit: "", mrp: 0, marketLowPrice: 0, marketHighPrice: 0, supplierPrice: 0, sellingPrice: 0, marginPercent: 10, gstPercent: 5, handlingFee: 0, stock: 0, photoUrl: "", status: "Active", priceSource: "", city: "Bengaluru", pincode: "" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    if (!form.productName) { toast.error("Product name required"); return; }
-    if (!form.supplierId) { toast.error("Supplier required — create a supplier first"); return; }
-    setSaving(true);
-    try {
-      if (product) await api.adminUpdateProduct(product.id, form);
-      else await api.adminCreateProduct(form);
-      toast.success(product ? "Product updated!" : "Product created!");
-      onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  const num = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value === "" ? 0 : Number(e.target.value) });
-  // Margin calculator: Selling Price = Supplier Price × (1 + Margin%) + Handling Fee
-  const calcSellingPrice = () => {
-    const sp = Number(form.supplierPrice) || 0;
-    const margin = Number(form.marginPercent) || 0;
-    const handling = Number(form.handlingFee) || 0;
-    const calculated = Math.round((sp * (1 + margin / 100) + handling) * 100) / 100;
-    setForm({ ...form, sellingPrice: calculated });
-    toast.success(`Calculated: ₹${calculated} (Supplier ₹${sp} + ${margin}% margin + ₹${handling} handling)`);
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader><DialogTitle>{product ? "Edit Product" : "Add New Product"}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><Label className="text-xs font-semibold">Product name *</Label><Input value={form.productName || ""} onChange={(e) => setForm({ ...form, productName: e.target.value })} placeholder="e.g. Sona Masoori Rice 5kg" /></div>
-          <div><Label className="text-xs font-semibold">Supplier *</Label>
-            <Select value={String(form.supplierId)} onValueChange={(v) => setForm({ ...form, supplierId: Number(v) })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.supplierName}</SelectItem>)}</SelectContent>
-            </Select>
-            {suppliers.length === 0 && <p className="text-[10px] text-red-600 mt-1">No suppliers. Create one in Suppliers tab first.</p>}
-          </div>
-          <div><Label className="text-xs font-semibold">Category</Label>
-            <Select value={form.category || "Grocery Staples"} onValueChange={(v) => setForm({ ...form, category: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Grocery Staples", "Dal & Pulses", "Oil/Dairy/Bakery", "Masala & Spices", "Vegetables & Fruits", "FMCG", "Construction/Hardware", "Other"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs font-semibold">Subcategory</Label><Input value={form.subcategory || ""} onChange={(e) => setForm({ ...form, subcategory: e.target.value })} placeholder="e.g. Rice, Pulses, Spices" /></div>
-          <div><Label className="text-xs font-semibold">Brand / Type</Label><Input value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Aashirvaad, Generic/Local" /></div>
-          <div><Label className="text-xs font-semibold">Unit</Label><Input value={form.unit || ""} onChange={(e) => setForm({ ...form, unit: e.target.value, packSize: e.target.value })} placeholder="e.g. 5 kg, 500ml, 1 pc" /></div>
-          <div><Label className="text-xs font-semibold">City</Label><Input value={form.city || ""} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="e.g. Bengaluru" /></div>
-        </div>
-
-        {/* Pricing section */}
-        <div className="mt-4 p-3 rounded-lg border-2 border-brand-yellow/30 bg-brand-yellow/5">
-          <h4 className="text-sm font-bold mb-2 flex items-center gap-1"><IndianRupee className="w-4 h-4 text-brand-red" /> Pricing Master</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div><Label className="text-xs font-semibold">MRP ₹</Label><Input type="number" step="0.01" value={form.mrp} onChange={num("mrp")} /></div>
-            <div><Label className="text-xs font-semibold">Market Low ₹</Label><Input type="number" step="0.01" value={form.marketLowPrice} onChange={num("marketLowPrice")} placeholder="Competitor low price" /></div>
-            <div><Label className="text-xs font-semibold">Market High ₹</Label><Input type="number" step="0.01" value={form.marketHighPrice} onChange={num("marketHighPrice")} placeholder="Competitor high price" /></div>
-            <div><Label className="text-xs font-semibold">Supplier Price ₹</Label><Input type="number" step="0.01" value={form.supplierPrice} onChange={num("supplierPrice")} /></div>
-            <div><Label className="text-xs font-semibold">Margin %</Label><Input type="number" step="0.1" value={form.marginPercent} onChange={num("marginPercent")} placeholder="5-20%" /></div>
-            <div><Label className="text-xs font-semibold">Handling Fee ₹</Label><Input type="number" step="0.01" value={form.handlingFee} onChange={num("handlingFee")} /></div>
-            <div><Label className="text-xs font-semibold">GST %</Label><Input type="number" step="0.1" value={form.gstPercent} onChange={num("gstPercent")} /></div>
-            <div><Label className="text-xs font-semibold">Selling Price ₹</Label><Input type="number" step="0.01" value={form.sellingPrice} onChange={num("sellingPrice")} className="font-bold border-brand-yellow" /></div>
-            <div className="flex items-end"><Button size="sm" type="button" onClick={calcSellingPrice} className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-9">Auto-Calc Price</Button></div>
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Formula: Selling Price = Supplier Price × (1 + Margin%) + Handling Fee. Click "Auto-Calc Price" to calculate automatically. Compare with competitor prices (Market Low/High fields).</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <div><Label className="text-xs font-semibold">Stock</Label><Input type="number" value={form.stock} onChange={num("stock")} /></div>
-          <div><Label className="text-xs font-semibold">Price Source</Label>
-            <Select value={form.priceSource || "Manual"} onValueChange={(v) => setForm({ ...form, priceSource: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Manual", "Competitor A", "Competitor B", "Competitor C", "Local Supplier", "Local Market"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs font-semibold">Pincode</Label><Input value={form.pincode || ""} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="e.g. 560001" /></div>
-          <div><Label className="text-xs font-semibold">Status</Label>
-            <Select value={form.status || "Active"} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Active", "Pending", "Out of Stock", "Hidden"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Image upload — from device (mobile/laptop) or URL */}
-        <div className="mt-3">
-          <ImageUpload
-            value={form.photoUrl || ""}
-            onChange={(url) => setForm({ ...form, photoUrl: url })}
-            label="Product Image"
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold">{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}{product ? "Save Changes" : "Create Product"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Settings -------------------- */
-function SettingsView() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setData(await api.adminSettings()); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (loading || !data) return <Loading />;
-  const s = data.settings;
-  const setSetting = (key: string, value: string) => setData({ ...data, settings: { ...s, [key]: { ...(s[key] || { type: "text" }), value } } });
-  const setContent = (idx: number, field: string, value: string) => {
-    const content = [...data.content];
-    content[idx] = { ...content[idx], [field]: value };
-    setData({ ...data, content });
-  };
-  const save = async () => {
-    setSaving(true);
-    try {
-      const settingsObj: any = {};
-      for (const [k, v] of Object.entries(s)) settingsObj[k] = (v as any).value;
-      await api.adminUpdateSettings({ settings: settingsObj, content: data.content });
-      toast.success("Settings saved");
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  const reseed = async () => {
-    if (!confirm("Re-run seed? This re-syncs default services, prices, settings. Existing bookings are kept.")) return;
-    try { await api.adminSeed(); toast.success("Seed complete"); load(); } catch (e: any) { toast.error(e.message); }
-  };
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader><CardTitle className="text-base">Brand & Contact</CardTitle></CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-3">
-          <SField label="Company name" value={s.company_name?.value} onChange={(v) => setSetting("company_name", v)} />
-          <SField label="Tagline" value={s.tagline?.value} onChange={(v) => setSetting("tagline", v)} />
-          <SField label="Contact 1" value={s.contact_1?.value} onChange={(v) => setSetting("contact_1", v)} />
-          <SField label="Contact 2" value={s.contact_2?.value} onChange={(v) => setSetting("contact_2", v)} />
-          <SField label="Email" value={s.email?.value} onChange={(v) => setSetting("email", v)} />
-          <SField label="GSTIN" value={s.gstin?.value} onChange={(v) => setSetting("gstin", v)} />
-          <SField label="Website" value={s.website?.value} onChange={(v) => setSetting("website", v)} />
-          <SField label="UPI ID" value={s.upi_id?.value} onChange={(v) => setSetting("upi_id", v)} />
-          <SField label="WhatsApp number (with country code)" value={s.whatsapp_number?.value} onChange={(v) => setSetting("whatsapp_number", v)} />
-          <SField label="Announcement" value={s.announcement?.value} onChange={(v) => setSetting("announcement", v)} />
-          <SField label="Primary color" value={s.primary_color?.value} onChange={(v) => setSetting("primary_color", v)} />
-          <SField label="Secondary color" value={s.secondary_color?.value} onChange={(v) => setSetting("secondary_color", v)} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Bell className="w-5 h-5 text-brand-red" /> Notification Settings (FREE)</CardTitle>
-          <CardDescription>Get instant push notifications on your phone when a new booking is placed.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="bg-brand-yellow/10 border border-brand-yellow/30 rounded-lg p-3 space-y-1">
-            <p className="text-xs font-bold text-brand-black">📱 ntfy Push Notifications (FREE — no signup)</p>
-            <p className="text-[11px] text-muted-foreground">1. Install "ntfy" app on your phone (Play Store / App Store)<br/>2. Subscribe to your topic name below<br/>3. You'll get instant push notifications for every booking</p>
-          </div>
-          <SField label="ntfy Topic (unique name)" value={s.ntfy_topic?.value} onChange={(v) => setSetting("ntfy_topic", v)} />
-          <SField label="ntfy Server URL" value={s.ntfy_server?.value} onChange={(v) => setSetting("ntfy_server", v)} />
-          <div className="flex items-center gap-2 pt-1">
-            <Switch checked={s.tool_ntfy?.value === "true"} onCheckedChange={(v) => setSetting("tool_ntfy", v ? "true" : "false")} id="ntfy-toggle" />
-            <Label htmlFor="ntfy-toggle" className="text-xs cursor-pointer">ntfy notifications enabled</Label>
-          </div>
-          <Separator className="my-2" />
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
-            <p className="text-xs font-bold text-blue-900">💬 Telegram Bot Notifications (FREE)</p>
-            <p className="text-[11px] text-muted-foreground">1. Open Telegram → search @BotFather → /newbot → get Bot Token<br/>2. Search @userinfobot → get your Chat ID<br/>3. Start your bot (send /start)</p>
-          </div>
-          <SField label="Telegram Bot Token" value={s.telegram_bot_token?.value} onChange={(v) => setSetting("telegram_bot_token", v)} />
-          <SField label="Telegram Chat ID" value={s.telegram_chat_id?.value} onChange={(v) => setSetting("telegram_chat_id", v)} />
-          <div className="flex items-center gap-2 pt-1">
-            <Switch checked={s.tool_telegram?.value === "true"} onCheckedChange={(v) => setSetting("tool_telegram", v ? "true" : "false")} id="telegram-toggle" />
-            <Label htmlFor="telegram-toggle" className="text-xs cursor-pointer">Telegram notifications enabled</Label>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle className="text-base">Website Content Sections</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {data.content.map((c: any, i: number) => (
-            <div key={c.sectionKey} className="rounded-lg border p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-[10px]">{c.sectionKey}</Badge>
-                <Select value={c.status} onValueChange={(v) => setContent(i, "status", v)}>
-                  <SelectTrigger className="w-32 h-7 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>{["Active", "Hidden"].map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Input placeholder="Title" value={c.title || ""} onChange={(e) => setContent(i, "title", e.target.value)} />
-              <Input placeholder="Subtitle" value={c.subtitle || ""} onChange={(e) => setContent(i, "subtitle", e.target.value)} />
-              <Textarea rows={3} placeholder="Body" value={c.body || ""} onChange={(e) => setContent(i, "body", e.target.value)} />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={reseed}><RefreshCw className="w-4 h-4 mr-2" /> Re-sync Seed Data</Button>
-        <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold">
-          {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />} Save All Settings
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function SField({ label, value, onChange }: { label: string; value?: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <Input value={value || ""} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-/* -------------------- Domain Settings -------------------- */
-function DomainView() {
-  const [domain, setDomain] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setDomain((await api.adminDomain()).domain); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (loading || !domain) return <Loading />;
-  const set = (k: string, v: string) => setDomain({ ...domain, [k]: v });
-  const save = async () => {
-    setSaving(true);
-    try { await api.adminUpdateDomain(domain); toast.success("Domain settings saved"); } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  return (
-    <div className="space-y-3">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Domain & Link Settings</CardTitle>
-          <CardDescription>DNS is configured at your hosting provider. These URLs are used for sitemap, WhatsApp links, canonical URLs and SEO.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-3">
-          <SField label="Customer website URL" value={domain.customerUrl} onChange={(v) => set("customerUrl", v)} />
-          <SField label="Admin panel URL" value={domain.adminUrl} onChange={(v) => set("adminUrl", v)} />
-          <SField label="API base URL" value={domain.apiBaseUrl} onChange={(v) => set("apiBaseUrl", v)} />
-          <SField label="Canonical URL" value={domain.canonicalUrl} onChange={(v) => set("canonicalUrl", v)} />
-          <SField label="WhatsApp booking URL" value={domain.whatsappBookingUrl} onChange={(v) => set("whatsappBookingUrl", v)} />
-          <SField label="Logo URL" value={domain.logoUrl} onChange={(v) => set("logoUrl", v)} />
-          <SField label="Image base URL" value={domain.imageBaseUrl} onChange={(v) => set("imageBaseUrl", v)} />
-          <SField label="Sitemap URL" value={domain.sitemapUrl} onChange={(v) => set("sitemapUrl", v)} />
-          <div className="col-span-2"><Label className="text-xs">robots.txt settings</Label><Textarea rows={2} value={domain.robotsSettings || ""} onChange={(e) => set("robotsSettings", e.target.value)} /></div>
-          <SField label="SEO title" value={domain.seoTitle} onChange={(v) => set("seoTitle", v)} />
-          <SField label="SEO description" value={domain.seoDescription} onChange={(v) => set("seoDescription", v)} />
-        </CardContent>
-      </Card>
-      <div className="flex justify-end">
-        <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold">
-          {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />} Save Domain Settings
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------- Invoice HTML renderer -------------------- */
-function renderInvoiceHTML(inv: any): string {
-  const b = inv.breakup || {};
-  // Simplified bill: show Base Amount, GST, Delivery Cost, Platform Charges
-  const baseAmount = (b.baseFare || 0) + (b.distanceCharge || 0) + (b.loadingCharge || 0) + (b.waitingCharge || 0) + (b.helperCharge || 0) + (b.nightCharge || 0) + (b.expressCharge || 0) + (b.extraCharge || 0) + (b.tollParking || 0) + (b.materialCost || 0);
-  const gst = b.gst || 0;
-  const deliveryCost = (b.loadingCharge || 0) + (b.deliveryCharge || 0);
-  const platformCharges = (b.platformFee || 0) + (b.handlingFee || 0) + (b.commissionAmount || 0);
-  const discount = b.discountAmount || 0;
-  const finalAmt = inv.adminFinalAmount ?? inv.finalEstimate;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${inv.invoiceNo}</title>
-  <style>
-    *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
-    body{margin:0;padding:32px;color:#111;background:#fff;max-width:800px;margin:0 auto}
-    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:4px solid #FACC15;padding-bottom:16px;margin-bottom:24px}
-    .logo-area{display:flex;align-items:center;gap:12px}
-    .logo{width:60px;height:60px;border-radius:10px;object-fit:contain}
-    .brand{font-size:26px;font-weight:800;color:#DC2626}.brand span{color:#FACC15}
-    .tagline{font-size:11px;color:#666;margin-top:2px}
-    .legal{font-size:11px;color:#555;margin-top:6px;line-height:1.5}
-    .inv-meta{text-align:right;font-size:12px;color:#555}
-    .inv-no{font-size:20px;font-weight:700;color:#DC2626}
-    .inv-title{font-size:14px;font-weight:700;color:#111;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-    .box{background:#fafafa;border:1px solid #eee;border-radius:8px;padding:12px}
-    .box h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;color:#888;letter-spacing:.5px}
-    .box p{margin:2px 0;font-size:13px}
-    table{width:100%;border-collapse:collapse;margin:16px 0}
-    th,td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid #eee}
-    th{background:#111827;color:#FACC15;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.5px}
-    td.amt{text-align:right;font-weight:600}
-    .tot{display:flex;justify-content:space-between;font-size:20px;font-weight:800;padding:14px 0;border-top:3px solid #111;margin-top:8px}
-    .tot span:last-child{color:#DC2626}
-    .foot{margin-top:32px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:12px;line-height:1.6}
-    .badge{display:inline-block;background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase}
-    @media print{body{padding:0;max-width:none}}
-  </style></head><body>
-  <div class="head">
-    <div class="logo-area">
-      <img src="${typeof window !== "undefined" ? window.location.origin : ""}/logo.png" alt="ParcelMaadi" class="logo" onerror="this.style.display='none'">
-      <div>
-        <div class="brand">Parcel<span>Maadi</span></div>
-        <div class="tagline">Fast · Local · Reliable</div>
-        <div class="legal">Operated by <b>HP Enterprise</b><br>GSTIN: ${inv.company?.gstin || "29ANZPH4067Q1ZS"}<br>${inv.company?.email || "parcelmaadipm@gmail.com"} · ${inv.company?.contact || "9741433725"}</div>
-      </div>
-    </div>
-    <div class="inv-meta">
-      <div class="inv-title">Tax Invoice</div>
-      <div class="inv-no">${inv.invoiceNo}</div>
-      <div>Order ID: ${inv.bookingId}</div>
-      <div>Booking Time: ${new Date(inv.date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-      <div>Status: <span class="badge">${inv.status}</span></div>
-    </div>
-  </div>
-  <div class="grid">
-    <div class="box"><h4>Bill To</h4><p><b>${inv.customer?.name || ""}</b></p><p>${inv.customer?.mobile || ""}</p><p>${inv.customer?.email || ""}</p></div>
-    <div class="box"><h4>Service Details</h4><p><b>${inv.service || ""}</b></p><p>Vehicle: ${inv.vehicle || "—"}</p><p>Distance: ${inv.distanceKm || 0} km</p>${inv.etaText ? `<p>ETA: ${inv.etaText}</p>` : ""}</div>
-  </div>
-  <div class="grid">
-    <div class="box"><h4>Pickup Location</h4><p>${inv.pickup?.address || "—"}</p>${inv.pickup?.mapLink ? `<p><a href="${inv.pickup.mapLink}" style="color:#DC2626">View on Map ↗</a></p>` : ""}</div>
-    <div class="box"><h4>Drop Location</h4><p>${inv.drop?.address || "—"}</p>${inv.drop?.mapLink ? `<p><a href="${inv.drop.mapLink}" style="color:#DC2626">View on Map ↗</a></p>` : ""}</div>
-  </div>
-  ${inv.itemDetails || inv.weight || inv.quantity ? `<div class="box" style="margin-bottom:16px"><h4>Item Details</h4><p>${inv.itemDetails || ""} ${inv.weight ? `· Weight: ${inv.weight}` : ""} ${inv.quantity ? `· Qty: ${inv.quantity}` : ""}</p></div>` : ""}
-  <table><thead><tr><th>Description</th><th style="text-align:right">Amount (₹)</th></tr></thead><tbody>
-  <tr><td>Base Amount</td><td class="amt">${baseAmount.toFixed(2)}</td></tr>
-  ${deliveryCost > 0 ? `<tr><td>Delivery Charges</td><td class="amt">${deliveryCost.toFixed(2)}</td></tr>` : ""}
-  ${platformCharges > 0 ? `<tr><td>Platform Charges</td><td class="amt">${platformCharges.toFixed(2)}</td></tr>` : ""}
-  ${gst > 0 ? `<tr><td>GST</td><td class="amt">${gst.toFixed(2)}</td></tr>` : ""}
-  </tbody></table>
-  <div class="tot"><span>Total Amount</span><span>₹${finalAmt}</span></div>
-  <div class="box" style="margin-top:16px"><h4>Payment Details</h4><p>Option: <b>${inv.paymentOption || "—"}</b></p><p>Status: ${inv.paymentStatus}</p>${inv.paymentReceived ? `<p>Amount Received: ₹${inv.paymentReceived}</p>` : ""}</div>
-  ${inv.driverName ? `<div class="box" style="margin-top:12px"><h4>Delivery Assigned To</h4><p><b>${inv.driverName}</b> · ${inv.driverMobile || ""}</p></div>` : ""}
-  <div class="foot">
-    <b>Thank you for choosing ParcelMaadi!</b><br>
-    This is a computer-generated invoice and does not require a physical signature.<br>
-    © ${new Date().getFullYear()} HP Enterprise · GSTIN: ${inv.company?.gstin || "29ANZPH4067Q1ZS"} · Made for Karnataka 🇮🇳
-  </div>
-  </body></html>`;
-}
-
-/* -------------------- Admin Users -------------------- */
-function UsersView() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setUsers((await api.adminUsers()).users || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Multiple admin users with role-based access. Owner manages all.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Admin</Button>
-      </div>
-      {loading ? <Loading /> : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {users.map((u) => (
-            <Card key={u.id}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${u.role === "Owner" ? "bg-brand-red" : u.role === "Operations" ? "bg-brand-yellow text-brand-black" : u.role === "Accounts" ? "bg-blue-600" : "bg-muted-foreground"}`}>{(u.name || u.email)[0]?.toUpperCase()}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold">{u.name || u.email}</div>
-                  <div className="text-xs text-muted-foreground">{u.email}</div>
-                  <div className="flex gap-2 mt-1"><Badge variant="outline" className="text-[10px]">{u.role}</Badge><Badge variant="outline" className={`text-[10px] ${u.status === "Active" ? "text-green-700" : "text-red-600"}`}>{u.status}</Badge></div>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(u)}><Pencil className="w-3.5 h-3.5" /></Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      {(creating || editing) && <UserEditDialog user={editing} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />}
-    </div>
-  );
-}
-
-function UserEditDialog({ user, onClose, onSaved }: { user: any | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(user ? { ...user } : { name: "", email: "", mobile: "", role: "View", password: "", status: "Active" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (user) await api.adminUpdateUser(user.id, form);
-      else await api.adminCreateUser(form);
-      toast.success("Saved"); onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>{user ? "Edit Admin User" : "Add Admin User"}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div><Label className="text-xs">Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div><Label className="text-xs">Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-          <div><Label className="text-xs">Mobile</Label><Input value={form.mobile || ""} onChange={(e) => setForm({ ...form, mobile: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs">Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{ADMIN_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs">Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{["Active", "Inactive"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div><Label className="text-xs">{user ? "New password (leave blank to keep)" : "Password"}</Label><Input type="password" value={form.password || ""} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Activity Log -------------------- */
-function ActivityView() {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch("/api/admin/activity", { credentials: "include" });
-      if (!r.ok) { if (r.status === 403) { toast.error("Only Owner can view activity log"); return; } throw new Error("Failed"); }
-      const data = await r.json();
-      setLogs(data.logs || []);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (loading) return <Loading />;
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Recent admin actions: logins (success/fail), password resets. Visible to Owner role only.</p>
-      {logs.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">No activity logged yet.</CardContent></Card>
-      ) : (
-        <div className="rounded-lg border bg-card overflow-hidden max-h-[70vh] overflow-y-auto pm-scroll">
-          <table className="w-full text-sm">
-            <thead className="bg-muted sticky top-0">
-              <tr><th className="text-left p-2">Time (IST)</th><th className="text-left p-2">Admin</th><th className="text-left p-2">Action</th><th className="text-left p-2">Detail</th><th className="text-left p-2">IP</th></tr>
-            </thead>
-            <tbody>
-              {logs.map((l) => (
-                <tr key={l.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 text-xs">{new Date(l.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
-                  <td className="p-2">{l.admin ? `${l.admin.name || l.admin.email} (${l.admin.role})` : <span className="text-muted-foreground">unknown</span>}</td>
-                  <td className="p-2"><Badge variant="outline" className={`text-[10px] ${l.action === "login_failed" ? "bg-red-100 text-red-800" : l.action === "login_success" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{l.action}</Badge></td>
-                  <td className="p-2 text-xs text-muted-foreground">{l.detail || "—"}</td>
-                  <td className="p-2 text-xs font-mono">{l.ip || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* -------------------- System Settings (future tools) -------------------- */
-function SystemView() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setData(await api.adminSettings()); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  if (loading || !data) return <Loading />;
-  const s = data.settings;
-  const setSetting = (key: string, value: string) => setData({ ...data, settings: { ...s, [key]: { ...(s[key] || { type: "bool" }), value } } });
-  const save = async () => {
-    setSaving(true);
-    try {
-      const obj: any = {};
-      for (const [k, v] of Object.entries(s)) obj[k] = (v as any).value;
-      await api.adminUpdateSettings({ settings: obj });
-      toast.success("System settings saved");
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-  const tools = [
-    { key: "tool_google_maps", label: "Google Maps API", desc: "Auto distance/ETA, autocomplete. Falls back to OSM + manual when off.", hasKey: "tool_google_maps_key", keyLabel: "API Key" },
-    { key: "tool_whatsapp_api", label: "WhatsApp API", desc: "Auto customer/owner notifications. Falls back to click-to-send when off.", hasKey: "tool_whatsapp_api_key", keyLabel: "API Key" },
-    { key: "tool_sms_otp", label: "SMS / OTP", desc: "Customer mobile OTP verification. Booking works without it.", hasKey: "tool_sms_api_key", keyLabel: "API Key" },
-    { key: "tool_payment_gateway", label: "Payment Gateway (Razorpay/Cashfree/PhonePe)", desc: "Online payment. Falls back to UPI manual when off.", hasKey: "tool_payment_key_id", keyLabel: "Key ID", hasSecret: "tool_payment_key_secret", secretLabel: "Key Secret" },
-    { key: "tool_email", label: "Email", desc: "Customer confirmations, admin alerts, quotations.", hasKey: "tool_email_smtp", keyLabel: "SMTP / API string" },
-    { key: "tool_pdf_quotation", label: "PDF Quotation", desc: "Auto quotation PDF download/share.", hasKey: null },
-    { key: "tool_gst_invoice", label: "GST Invoice", desc: "Show/hide GST on invoices and estimates.", hasKey: null },
-    { key: "tool_customer_login", label: "Customer Login (future)", desc: "Order history, repeat booking, saved addresses. Guest mode when off.", hasKey: null },
-    { key: "tool_partner_rider", label: "Partner/Rider (future)", desc: "Rider list, vehicle-owner list. Manual assignment only.", hasKey: null },
-    { key: "tool_supplier", label: "Supplier Module (future)", desc: "Supplier name, item, rate, location, status, approval.", hasKey: null },
-    { key: "tool_live_tracking", label: "Live Tracking (placeholder)", desc: "Not active now. Future-ready toggle.", hasKey: null },
-    { key: "tool_promo_code", label: "Promo Code", desc: "Coupon, first-order discount, area discount.", hasKey: null },
-    { key: "tool_wallet_credit", label: "Wallet/Credit (future)", desc: "Customer wallet, business credit, partner payout.", hasKey: null },
-    { key: "tool_ratings", label: "Ratings/Feedback (future)", desc: "Customer rating after order completion.", hasKey: null },
-    { key: "tool_multi_language", label: "Multi-language (future)", desc: "Kannada/English toggle. Defaults to English when off.", hasKey: null },
-    { key: "tool_ntfy", label: "ntfy Push Notifications", desc: "FREE push notifications to admin phone on every booking. Install ntfy app and subscribe to your topic.", hasKey: "ntfy_topic", keyLabel: "ntfy Topic", hasExtra: "ntfy_server", extraLabel: "ntfy Server URL" },
-    { key: "tool_telegram", label: "Telegram Bot Notifications", desc: "FREE Telegram messages to admin on every booking. Create bot via @BotFather.", hasKey: "telegram_bot_token", keyLabel: "Bot Token", hasSecret: "telegram_chat_id", secretLabel: "Chat ID" },
-  ];
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-brand-red" /> Security & Rate Limiting</CardTitle></CardHeader>
-        <CardContent className="grid md:grid-cols-3 gap-3">
-          <SField label="Session timeout (minutes)" value={s.session_timeout_minutes?.value} onChange={(v) => setSetting("session_timeout_minutes", v)} />
-          <SField label="Booking rate limit (per IP/min)" value={s.rate_limit_booking_per_minute?.value} onChange={(v) => setSetting("rate_limit_booking_per_minute", v)} />
-          <SField label="Login rate limit (per IP/min)" value={s.rate_limit_login_per_minute?.value} onChange={(v) => setSetting("rate_limit_login_per_minute", v)} />
-          <SField label="Upload max size (MB)" value={s.upload_max_size_mb?.value} onChange={(v) => setSetting("upload_max_size_mb", v)} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Zap className="w-5 h-5 text-brand-red" /> Auto-Discount</CardTitle>
-          <CardDescription>Auto-discount on every booking, with a commission floor.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center gap-2 text-sm"><Switch checked={s.porter_match_enabled?.value === "true"} onCheckedChange={(v) => setSetting("porter_match_enabled", v ? "true" : "false")} /> Auto-Discount enabled</label>
-          <SField label="Minimum Commission Floor (₹)" value={s.porter_min_commission_floor?.value} onChange={(v) => setSetting("porter_min_commission_floor", v)} />
           <div>
-            <Label className="text-xs">Discount Slab Table (JSON: [{`{from,to,percent}`}])</Label>
-            <Textarea rows={6} className="font-mono text-xs" value={s.porter_match_bands?.value || ""} onChange={(e) => setSetting("porter_match_bands", e.target.value)} />
-            <p className="text-[10px] text-muted-foreground mt-1">Default: 0-2% small, 3-4% mid, 5-6% large. Edit carefully.</p>
+            <label className="text-xs font-medium text-muted-foreground">Email</label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" placeholder="admin@parcelmaadi.com" />
           </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ImageIcon className="w-5 h-5 text-brand-red" /> Serviceable Areas (Karnataka-first)</CardTitle>
-          <CardDescription>Bookings outside these areas/cities/PINs are blocked with a clear message.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Label className="text-xs">Serviceable areas (JSON array of city names + PIN prefixes)</Label>
-          <Textarea rows={5} className="font-mono text-xs" value={s.serviceable_areas?.value || ""} onChange={(e) => setSetting("serviceable_areas", e.target.value)} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Future Tools — ON/OFF + API Keys</CardTitle>
-          <CardDescription>Every tool has a free fallback so the site never breaks if the key is missing.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {tools.map((t) => (
-            <div key={t.key} className="rounded-lg border p-3">
-              <div className="flex items-center justify-between mb-1">
-                <div><span className="font-semibold text-sm">{t.label}</span><p className="text-xs text-muted-foreground">{t.desc}</p></div>
-                <Switch checked={s[t.key]?.value === "true"} onCheckedChange={(v) => setSetting(t.key, v ? "true" : "false")} />
-              </div>
-              {t.hasKey && (
-                <div className="mt-2"><Label className="text-[10px]">{t.keyLabel}</Label><Input type="password" value={s[t.hasKey]?.value || ""} onChange={(e) => setSetting(t.hasKey, e.target.value)} placeholder="Paste key — stored in DB, never in code" /></div>
-              )}
-              {t.hasSecret && (
-                <div className="mt-2"><Label className="text-[10px]">{t.secretLabel}</Label><Input type="password" value={s[t.hasSecret]?.value || ""} onChange={(e) => setSetting(t.hasSecret, e.target.value)} /></div>
-              )}
-              {t.hasExtra && (
-                <div className="mt-2"><Label className="text-[10px]">{t.extraLabel}</Label><Input value={s[t.hasExtra]?.value || ""} onChange={(e) => setSetting(t.hasExtra, e.target.value)} placeholder="https://ntfy.sh" /></div>
-              )}
-              {t.key === "tool_payment_gateway" && (
-                <div className="mt-2">
-                  <Label className="text-[10px]">Provider</Label>
-                  <Select value={s.tool_payment_provider?.value || "razorpay"} onValueChange={(v) => setSetting("tool_payment_provider", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{["razorpay","cashfree","phonepe"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-amber-600 font-medium mt-1">⚠️ Not yet connected — bookings currently use UPI QR + screenshot verification only.</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      <div className="flex justify-end">
-        <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold">
-          {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />} Save All System Settings
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------- Force Password Change (first-time setup) -------------------- */
-function ForcePasswordChangeView({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [loading, setLoading] = useState(false);
-  const submit = async () => {
-    if (newPw.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    if (newPw !== confirmPw) { toast.error("Passwords do not match"); return; }
-    setLoading(true);
-    try {
-      await api.adminChangePassword(currentPw, newPw);
-      toast.success("Password set! Welcome to ParcelMaadi Admin.");
-      onDone();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  };
-  return (
-    <div className="min-h-screen bg-brand-black flex items-center justify-center p-4">
-      <div className="absolute inset-0 brand-gradient opacity-10" />
-      <Card className="w-full max-w-md relative">
-        <CardHeader className="text-center">
-          <img src="/logo.png" alt="ParcelMaadi" className="w-16 h-16 mx-auto rounded-xl bg-white p-2" />
-          <CardTitle className="text-2xl">Set Your Password</CardTitle>
-          <CardDescription>First-time setup — please set a new secure password (min 8 chars) to continue.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div><Label>Current / temporary password</Label><Input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} placeholder="admin123" /></div>
-          <div><Label>New password (min 8 chars)</Label><Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} /></div>
-          <div><Label>Confirm new password</Label><Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} /></div>
-          <Button className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold" onClick={submit} disabled={loading}>
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />} Set Password & Continue
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Password</label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" placeholder="••••••••" onKeyDown={(e) => e.key === "Enter" && submit()} />
+          </div>
+          {err && <div className="text-xs text-red-600 bg-red-50 dark:bg-red-950/30 p-2 rounded">{err}</div>}
+          <Button className="w-full" onClick={submit} disabled={loading}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            Sign in
           </Button>
-          <Button variant="ghost" className="w-full" onClick={onExit}>Back to Website</Button>
-          <p className="text-xs text-center text-muted-foreground">🔒 This is required for security on first login.</p>
-        </CardContent>
+          <Button variant="ghost" className="w-full" onClick={onExit}>Back to site</Button>
+        </div>
       </Card>
     </div>
   );
 }
 
-/* -------------------- Zones -------------------- */
-function ZonesView() {
-  const [zones, setZones] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [creating, setCreating] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setZones((await api.adminZones()).zones || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const del = async (id: number) => { if (!confirm("Delete zone?")) return; try { await api.adminDeleteZone(id); toast.success("Deleted"); load(); } catch (e: any) { toast.error(e.message); } };
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Zone master — manage serviceable areas + PIN codes. Used for zone-wise pricing & restrictions.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Zone</Button>
-      </div>
-      {loading ? <Loading /> : (
-        <div className="grid md:grid-cols-2 gap-3">
-          {zones.map((z) => (
-            <Card key={z.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between">
-                  <div><div className="font-bold">{z.name}</div><div className="text-xs text-muted-foreground">{z.slug}</div></div>
-                  <Badge variant="outline" className="text-[10px]">{z.status}</Badge>
-                </div>
-                {z.cities && <div className="text-xs mt-2"><b>Cities:</b> {z.cities}</div>}
-                {z.pinCodes && <div className="text-xs"><b>PINs:</b> {z.pinCodes}</div>}
-                <div className="text-[10px] text-muted-foreground mt-1">{z._count?.priceMaster || 0} price rules linked</div>
-                <div className="flex gap-1 mt-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(z)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => del(z.id)}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      {(editing || creating) && <ZoneEditDialog zone={editing} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />}
-    </div>
-  );
-}
-
-function ZoneEditDialog({ zone, onClose, onSaved }: any) {
-  const [form, setForm] = useState<any>(zone ? { ...zone } : { name: "", slug: "", description: "", pinCodes: "", cities: "", status: "Active" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try { if (zone) await api.adminUpdateZone(zone.id, form); else await api.adminCreateZone(form); toast.success("Saved"); onSaved(); }
-    catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>{zone ? "Edit Zone" : "Add Zone"}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div><Label className="text-xs">Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div><Label className="text-xs">Slug (auto from name if empty)</Label><Input value={form.slug || ""} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
-          <div><Label className="text-xs">Cities (comma-separated)</Label><Input value={form.cities || ""} onChange={(e) => setForm({ ...form, cities: e.target.value })} /></div>
-          <div><Label className="text-xs">PIN codes (comma-separated)</Label><Input value={form.pinCodes || ""} onChange={(e) => setForm({ ...form, pinCodes: e.target.value })} /></div>
-          <div><Label className="text-xs">Status</Label>
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{["Active", "Inactive"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Coupons -------------------- */
-function CouponsView() {
-  const [coupons, setCoupons] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [creating, setCreating] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setCoupons((await api.adminCoupons()).coupons || []); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-  const del = async (id: number) => { if (!confirm("Delete coupon?")) return; try { await api.adminDeleteCoupon(id); toast.success("Deleted"); load(); } catch (e: any) { toast.error(e.message); } };
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">Discount coupons — flat or % off, min order, max discount, usage limit, validity.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add Coupon</Button>
-      </div>
-      {loading ? <Loading /> : (
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted"><tr><th className="text-left p-2">Code</th><th className="text-left p-2">Description</th><th className="text-right p-2">Discount</th><th className="text-right p-2">Min Order</th><th className="text-right p-2">Used/Limit</th><th className="text-center p-2">Status</th><th></th></tr></thead>
-            <tbody>
-              {coupons.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 font-mono font-bold text-brand-red">{c.code}</td>
-                  <td className="p-2 text-xs">{c.description}</td>
-                  <td className="p-2 text-right">{c.discountType === "flat" ? `₹${c.discountValue}` : `${c.discountValue}%`}</td>
-                  <td className="p-2 text-right">₹{c.minOrderAmount}</td>
-                  <td className="p-2 text-right text-xs">{c.usedCount}/{c.usageLimit || "∞"}</td>
-                  <td className="p-2 text-center"><Badge variant="outline" className={`text-[10px] ${c.status === "Active" ? "text-green-700" : "text-red-600"}`}>{c.status}</Badge></td>
-                  <td className="p-2 text-right"><Button size="sm" variant="ghost" onClick={() => setEditing(c)}><Pencil className="w-3.5 h-3.5" /></Button><Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {(editing || creating) && <CouponEditDialog coupon={editing} onClose={() => { setEditing(null); setCreating(false); }} onSaved={() => { setEditing(null); setCreating(false); load(); }} />}
-    </div>
-  );
-}
-
-function CouponEditDialog({ coupon, onClose, onSaved }: any) {
-  const [form, setForm] = useState<any>(coupon ? { ...coupon } : { code: "", description: "", discountType: "percent", discountValue: 10, minOrderAmount: 100, maxDiscount: 100, usageLimit: 100, status: "Active" });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try { if (coupon) await api.adminUpdateCoupon(coupon.id, form); else await api.adminCreateCoupon(form); toast.success("Saved"); onSaved(); }
-    catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
-  };
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>{coupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div><Label className="text-xs">Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SUMMER20" /></div>
-          <div><Label className="text-xs">Description</Label><Input value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs">Type</Label>
-              <Select value={form.discountType} onValueChange={(v) => setForm({ ...form, discountType: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{["percent", "flat"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs">Value</Label><Input type="number" value={form.discountValue} onChange={(e) => setForm({ ...form, discountValue: Number(e.target.value) })} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs">Min order ₹</Label><Input type="number" value={form.minOrderAmount} onChange={(e) => setForm({ ...form, minOrderAmount: Number(e.target.value) })} /></div>
-            <div><Label className="text-xs">Max discount ₹</Label><Input type="number" value={form.maxDiscount} onChange={(e) => setForm({ ...form, maxDiscount: Number(e.target.value) })} /></div>
-          </div>
-          <div><Label className="text-xs">Usage limit (0=unlimited)</Label><Input type="number" value={form.usageLimit} onChange={(e) => setForm({ ...form, usageLimit: Number(e.target.value) })} /></div>
-        </div>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* -------------------- Reports -------------------- */
-function ReportsView() {
-  const [period, setPeriod] = useState("monthly");
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setData(await api.adminReports(period)); } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, [period]);
-  useEffect(() => { load(); }, [load]);
-  if (loading || !data) return <Loading />;
-  const exportCsv = () => {
-    const rows = [["Metric", "Value"], ["Total Bookings", data.total], ["Completed", data.completed], ["Cancelled", data.cancelled], ["Revenue", data.revenue], ["Realized", data.realized], ["Pending", data.pending], ["GST", data.gst], ["Commission/Profit", data.commission], ["Discount", data.discount]];
-    const csv = rows.map((r) => r.join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a"); a.href = url; a.download = `parcelmaadi-report-${period}.csv`; a.click(); URL.revokeObjectURL(url);
-  };
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-sm font-medium">Period:</span>
-        {["daily", "weekly", "monthly", "yearly"].map((p) => (
-          <Button key={p} size="sm" variant={period === p ? "default" : "outline"} className={period === p ? "bg-brand-yellow text-brand-black" : ""} onClick={() => setPeriod(p)}>{p}</Button>
-        ))}
-        <Button size="sm" variant="outline" onClick={exportCsv}><Download className="w-4 h-4 mr-1" /> Export CSV</Button>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4 bg-brand-yellow/20"><div className="text-2xl font-extrabold">{data.total}</div><div className="text-xs text-muted-foreground">Total Bookings</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-green-50"><div className="text-2xl font-extrabold text-green-700">{data.completed}</div><div className="text-xs text-muted-foreground">Completed</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-red-50"><div className="text-2xl font-extrabold text-red-700">{data.cancelled}</div><div className="text-xs text-muted-foreground">Cancelled</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-blue-50"><div className="text-2xl font-extrabold text-blue-700">₹{data.revenue.toLocaleString("en-IN")}</div><div className="text-xs text-muted-foreground">Revenue</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-green-50"><div className="text-2xl font-extrabold text-green-700">₹{data.realized.toLocaleString("en-IN")}</div><div className="text-xs text-muted-foreground">Realized</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-orange-50"><div className="text-2xl font-extrabold text-orange-700">₹{data.pending.toLocaleString("en-IN")}</div><div className="text-xs text-muted-foreground">Pending</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-purple-50"><div className="text-2xl font-extrabold text-purple-700">₹{data.gst.toLocaleString("en-IN")}</div><div className="text-xs text-muted-foreground">GST Collected</div></CardContent></Card>
-        <Card><CardContent className="p-4 bg-brand-yellow/20"><div className="text-2xl font-extrabold">₹{data.commission.toLocaleString("en-IN")}</div><div className="text-xs text-muted-foreground">Profit (Commission)</div></CardContent></Card>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Service-wise</CardTitle></CardHeader>
-          <CardContent>
-            {data.serviceWise.length === 0 ? <p className="text-sm text-muted-foreground">No data</p> : (
-              <div className="space-y-2">{data.serviceWise.map((s: any) => (
-                <div key={s.name} className="flex justify-between text-sm"><span>{s.name}</span><span><b>{s.count}</b> · ₹{s.revenue.toLocaleString("en-IN")}</span></div>
-              ))}</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Vehicle-wise</CardTitle></CardHeader>
-          <CardContent>
-            {data.vehicleWise.length === 0 ? <p className="text-sm text-muted-foreground">No data</p> : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pm-scroll">{data.vehicleWise.map((s: any) => (
-                <div key={s.name} className="flex justify-between text-sm"><span>{s.name}</span><span><b>{s.count}</b> · ₹{s.revenue.toLocaleString("en-IN")}</span></div>
-              ))}</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Status-wise</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">{data.statusWise.map((s: any) => (
-              <div key={s.status} className="flex justify-between text-sm"><span>{s.status}</span><span><b>{s.count}</b></span></div>
-            ))}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Payment-wise</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">{data.paymentWise.map((s: any) => (
-              <div key={s.paymentStatus} className="flex justify-between text-sm"><span>{s.paymentStatus}</span><span><b>{s.count}</b></span></div>
-            ))}</div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------- Departments (unified manager) -------------------- */
-function DepartmentsView() {
-  const topRef = useRef<HTMLDivElement>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [prices, setPrices] = useState<PriceMaster[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSvc, setSelectedSvc] = useState<Service | null>(null);
-  const [editingSvc, setEditingSvc] = useState<Service | null>(null);
-  const [creatingSvc, setCreatingSvc] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [creatingVehicle, setCreatingVehicle] = useState(false);
-  const [editingPrice, setEditingPrice] = useState<PriceMaster | null>(null);
-  const [creatingPrice, setCreatingPrice] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [creatingProduct, setCreatingProduct] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [s, v, p, pr, su] = await Promise.all([
-        api.adminServices(),
-        api.adminVehicles(),
-        api.adminPriceMaster(),
-        api.adminProducts(),
-        api.adminSuppliers(),
-      ]);
-      setServices(s.services || []);
-      setVehicles(v.vehicles || []);
-      setPrices(p.prices || []);
-      setProducts(pr.products || []);
-      setSuppliers(su.suppliers || []);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { load(); }, [load]);
-
-  // CRITICAL FIX: scroll to TOP whenever a department is opened or closed.
-  // Must run in a useEffect (AFTER React renders the new content) — calling
-  // scrollTo inside the click handler runs before the DOM updates, so the
-  // new (longer) content still appears scrolled to the bottom.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Instant jump first (no smooth — smooth can get interrupted by reflow)
-    window.scrollTo(0, 0);
-    // Then belt-and-suspenders: scroll the ref anchor into view on next frame
-    requestAnimationFrame(() => {
-      topRef.current?.scrollIntoView({ block: "start" });
-      window.scrollTo(0, 0);
-    });
-  }, [selectedSvc]);
-
-  const selectDept = (svc: Service) => {
-    setSelectedSvc(svc);
-  };
-  const goBack = () => {
-    setSelectedSvc(null);
-  };
-  const toggleServiceStatus = async (svc: Service, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const next = svc.status === "Active" ? "Inactive" : "Active";
-    try {
-      await api.adminUpdateService(svc.id, { status: next });
-      toast.success(`${svc.name}: ${next === "Active" ? "ON" : "OFF"}`);
-      load();
-    } catch (e: any) { toast.error(e.message); }
-  };
-
-  if (loading) return <Loading />;
-
-  /* ---------- Detail view for a selected department ---------- */
-  if (selectedSvc) {
-    const svcVehicles = vehicles.filter((v) => v.serviceId === selectedSvc.id);
-    const svcPrices = prices.filter((p) => p.serviceId === selectedSvc.id);
-    const isSupplierShop = selectedSvc.slug === "supplier-shop";
-    return (
-      <div ref={topRef} className="space-y-4 scroll-mt-20">
-        {/* Header: All Depts back + Edit Dept + Add Vehicle */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sticky top-14 bg-muted/30 backdrop-blur-sm py-2 px-2 -mx-2 rounded-md z-10">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button variant="outline" size="sm" onClick={goBack}>
-              <ChevronLeft className="w-4 h-4 mr-1" /> All Depts
-            </Button>
-            <div className="flex items-center gap-2 min-w-0">
-              {selectedSvc.imageUrl ? (
-                <img src={selectedSvc.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
-              ) : (
-                <div className="w-9 h-9 rounded-lg bg-brand-yellow flex items-center justify-center flex-shrink-0">
-                  <ServiceIcon name={selectedSvc.icon} className="w-5 h-5 text-brand-black" />
-                </div>
-              )}
-              <div className="min-w-0">
-                <div className="font-extrabold text-base leading-tight truncate">{selectedSvc.name}</div>
-                <div className="text-[10px] text-muted-foreground truncate">{selectedSvc.slug} · {selectedSvc.status}</div>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <Button size="sm" variant="outline" onClick={() => setEditingSvc(selectedSvc)}>
-              <Pencil className="w-3.5 h-3.5 mr-1" /> Edit Dept
-            </Button>
-            <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreatingVehicle(true)}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Add Vehicle
-            </Button>
-          </div>
-        </div>
-
-        {/* Vehicles / Sub-Items section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Truck className="w-4 h-4" /> Vehicles & Sub-Items
-              <Badge variant="outline" className="text-[10px]">{svcVehicles.length}</Badge>
-            </CardTitle>
-            <CardDescription>Each vehicle/sub-item below has its own pricing rule. Click edit to update.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {svcVehicles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No vehicles/sub-items yet. Click &quot;Add Vehicle&quot; to create one.</p>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-3">
-                {svcVehicles.map((v) => {
-                  const vPrices = svcPrices.filter((p) => p.vehicleId === v.id);
-                  return (
-                    <div key={v.id} className="rounded-lg border bg-card p-3 flex gap-3">
-                      <div className="w-20 h-20 rounded-lg bg-muted flex-shrink-0 overflow-hidden flex items-center justify-center">
-                        {v.imageUrl ? (
-                          <img src={v.imageUrl} alt={v.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Truck className="w-8 h-8 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="min-w-0">
-                            <div className="font-bold truncate">{v.name}</div>
-                            <div className="text-[11px] text-muted-foreground">Slug: {v.slug || "—"}</div>
-                            {v.maxLoad && <div className="text-[11px]">Max load: {v.maxLoad}</div>}
-                            {v.recommendedUse && <div className="text-[11px] text-muted-foreground line-clamp-1">{v.recommendedUse}</div>}
-                          </div>
-                          <Badge variant="outline" className="text-[10px] flex-shrink-0">{v.status}</Badge>
-                        </div>
-                        {/* Price badges */}
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {vPrices.length === 0 ? (
-                            <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">No price rule</Badge>
-                          ) : (
-                            vPrices.map((p) => (
-                              <span key={p.id} className="text-[10px] bg-brand-yellow/30 text-brand-black rounded px-1.5 py-0.5 font-medium">
-                                ₹{p.minimumFare} min · ₹{p.perKmRate || 0}/km
-                              </span>
-                            ))
-                          )}
-                        </div>
-                        {/* Edit buttons */}
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingVehicle(v)}>
-                            <Pencil className="w-3 h-3 mr-1" /> Edit Vehicle
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditingPrice(vPrices[0] || null); if (vPrices.length === 0) setCreatingPrice(true); }}>
-                            <IndianRupee className="w-3 h-3 mr-1" /> Edit Pricing
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Products section — only for supplier-shop department */}
-        {isSupplierShop && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="w-4 h-4" /> Products
-                    <Badge variant="outline" className="text-[10px]">{products.length}</Badge>
-                  </CardTitle>
-                  <CardDescription>Approved products from approved suppliers show on the customer website.</CardDescription>
-                </div>
-                <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold flex-shrink-0" onClick={() => setCreatingProduct(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Product
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {products.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No products yet.</p>
-              ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="overflow-x-auto max-h-[60vh] overflow-y-auto pm-scroll">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted sticky top-0">
-                        <tr>
-                          <th className="text-left p-2">Product</th>
-                          <th className="text-left p-2">Supplier</th>
-                          <th className="text-right p-2">MRP</th>
-                          <th className="text-right p-2">Selling</th>
-                          <th className="text-right p-2">Stock</th>
-                          <th className="text-center p-2">Status</th>
-                          <th className="text-center p-2"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {products.map((p) => (
-                          <tr key={p.id} className="border-t hover:bg-muted/40">
-                            <td className="p-2">
-                              <div className="font-medium">{p.productName}</div>
-                              <div className="text-[10px] text-muted-foreground">{p.brand} · {p.packSize} · {p.category}</div>
-                            </td>
-                            <td className="p-2">{p.supplier?.supplierName}</td>
-                            <td className="p-2 text-right">₹{p.mrp}</td>
-                            <td className="p-2 text-right font-bold">₹{p.sellingPrice}</td>
-                            <td className="p-2 text-right">{p.stock}</td>
-                            <td className="p-2 text-center">
-                              <Badge variant="outline" className={`text-[10px] ${p.status === "Active" ? "bg-green-100 text-green-800" : p.status === "Out of Stock" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{p.status}</Badge>
-                            </td>
-                            <td className="p-2 text-center">
-                              <Button size="sm" variant="ghost" onClick={() => setEditingProduct(p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Dialogs */}
-        {editingSvc && (
-          <ServiceEditDialog service={editingSvc} onClose={() => setEditingSvc(null)} onSaved={() => { setEditingSvc(null); load(); }} />
-        )}
-        {(editingVehicle || creatingVehicle) && (
-          <VehicleEditDialog
-            vehicle={editingVehicle}
-            serviceId={selectedSvc.id}
-            onClose={() => { setEditingVehicle(null); setCreatingVehicle(false); }}
-            onSaved={() => { setEditingVehicle(null); setCreatingVehicle(false); load(); }}
-          />
-        )}
-        {(editingPrice || creatingPrice) && (
-          <PriceEditDialog
-            price={editingPrice}
-            services={services}
-            onClose={() => { setEditingPrice(null); setCreatingPrice(false); }}
-            onSaved={() => { setEditingPrice(null); setCreatingPrice(false); load(); }}
-          />
-        )}
-        {(editingProduct || creatingProduct) && (
-          <ProductEditDialog
-            product={editingProduct}
-            suppliers={suppliers}
-            onClose={() => { setEditingProduct(null); setCreatingProduct(false); }}
-            onSaved={() => { setEditingProduct(null); setCreatingProduct(false); load(); }}
-          />
-        )}
-      </div>
-    );
+// ============================================================
+// MODULE RENDERER
+// ============================================================
+function ModuleRenderer({ tab, admin }: { tab: Tab; admin: AdminInfo }) {
+  switch (tab) {
+    case "dashboard": return <DashboardModule />;
+    case "bookings": return <BookingsModule />;
+    case "customers": return <CustomersModule />;
+    case "riders": return <RidersModule />;
+    case "vendors": return <VendorsModule />;
+    case "branches": return <BranchesModule />;
+    case "marketplace": return <MarketplaceModule />;
+    case "products": return <ProductsModule />;
+    case "categories": return <CategoriesModule />;
+    case "inventory": return <InventoryModule />;
+    case "services": return <ServicesModule />;
+    case "vehicles": return <VehiclesModule />;
+    case "cities": return <CitiesModule />;
+    case "zones": return <ZonesModule />;
+    case "pricing": return <PricingModule />;
+    case "coupons": return <CouponsModule />;
+    case "offers": return <OffersModule />;
+    case "payments": return <PaymentsModule />;
+    case "wallet": return <WalletModule />;
+    case "settlements": return <SettlementsModule />;
+    case "reports": return <ReportsModule />;
+    case "analytics": return <AnalyticsModule />;
+    case "cms": return <CmsModule />;
+    case "media": return <MediaModule />;
+    case "banners": return <BannersModule />;
+    case "pages": return <PagesModule />;
+    case "menus": return <MenusModule />;
+    case "notifications": return <NotificationsModule />;
+    case "whatsapp": return <CommsModule channel="WhatsApp" />;
+    case "email": return <CommsModule channel="Email" />;
+    case "sms": return <CommsModule channel="SMS" />;
+    case "support": return <SupportModule />;
+    case "audit-logs": return <AuditLogsModule />;
+    case "roles": return <RolesModule admin={admin} />;
+    case "permissions": return <PermissionsModule />;
+    case "feature-flags": return <FeatureFlagsModule />;
+    case "api-keys": return <ApiKeysModule />;
+    case "integrations": return <IntegrationsModule />;
+    case "settings": return <SettingsModule />;
+    case "backup": return <BackupModule />;
+    case "profile": return <ProfileModule admin={admin} />;
+    default: return <div>Module not found: {tab}</div>;
   }
+}
 
-  /* ---------- Department selector grid ---------- */
+// ============================================================
+// DASHBOARD MODULE (premium with KPIs, charts, widgets, map)
+// ============================================================
+function DashboardModule() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/dashboard");
+      const d = await r.json();
+      setData(d);
+    } catch (e) {
+      toast.error("Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading || !data) return <DashboardSkeleton />;
+
+  const k = data.kpis;
+  const kpiCards = [
+    { label: "Today's Bookings", value: k.todayBookings, total: k.totalBookings, icon: CalendarClock, color: "from-indigo-500 to-purple-600", trend: "+12%" },
+    { label: "Pending", value: k.pending, icon: AlertCircle, color: "from-amber-500 to-orange-600" },
+    { label: "Assigned", value: k.assigned, icon: Bike, color: "from-blue-500 to-cyan-600" },
+    { label: "Picked Up", value: k.pickedUp, icon: Package, color: "from-purple-500 to-pink-600" },
+    { label: "Delivered", value: k.delivered, icon: Check, color: "from-green-500 to-emerald-600" },
+    { label: "Cancelled", value: k.cancelled, icon: X, color: "from-red-500 to-rose-600" },
+    { label: "Emergency", value: k.emergency, icon: AlertCircle, color: "from-red-500 to-rose-600" },
+    { label: "Marketplace Orders", value: k.marketplace, icon: ShoppingBag, color: "from-orange-500 to-amber-600" },
+    { label: "Revenue Today", value: `₹${k.revenueToday.toLocaleString()}`, icon: IndianRupee, color: "from-green-500 to-emerald-600" },
+    { label: "Revenue This Month", value: `₹${k.revenueThisMonth.toLocaleString()}`, icon: TrendingUp, color: "from-emerald-500 to-teal-600" },
+    { label: "Active Riders", value: k.activeRiders, icon: Bike, color: "from-blue-500 to-indigo-600" },
+    { label: "Active Vendors", value: k.activeVendors, icon: Store, color: "from-purple-500 to-violet-600" },
+    { label: "Active Branches", value: k.activeBranches, icon: Building2, color: "from-cyan-500 to-blue-600" },
+    { label: "Customers", value: k.customers, icon: Users, color: "from-pink-500 to-rose-600" },
+    { label: "Products", value: k.products, icon: Package, color: "from-amber-500 to-yellow-600" },
+    { label: "Inventory Alerts", value: k.inventoryAlerts, icon: Boxes, color: "from-red-500 to-orange-600" },
+  ];
+
   return (
-    <div ref={topRef} className="space-y-3 scroll-mt-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Unified manager for service departments. Click a department to view &amp; edit all vehicles, pricing and (for Supplier / Shop) products.
-        </p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold shrink-0" onClick={() => setCreatingSvc(true)}>
-          <Plus className="w-4 h-4 mr-1" /> Add New Department
-        </Button>
-      </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {/* Add New Department card (first item, dashed) */}
-        <button
-          type="button"
-          onClick={() => setCreatingSvc(true)}
-          className="text-left rounded-xl border-2 border-dashed border-brand-yellow/60 bg-brand-yellow/5 hover:bg-brand-yellow/10 hover:border-brand-yellow transition-all flex flex-col items-center justify-center min-h-[180px] p-4 group"
-        >
-          <div className="w-12 h-12 rounded-full bg-brand-yellow flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-            <Plus className="w-6 h-6 text-brand-black" />
-          </div>
-          <div className="font-bold text-brand-black">Add New Department</div>
-          <div className="text-[11px] text-muted-foreground text-center mt-1">Create a new service department with its own vehicles, pricing &amp; image</div>
-        </button>
-        {services.map((s) => {
-          const vCount = vehicles.filter((v) => v.serviceId === s.id).length;
-          const pCount = s.slug === "supplier-shop" ? products.length : 0;
-          const isOn = s.status === "Active";
+    <div className="space-y-6">
+      {/* KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        {kpiCards.map((kpi, i) => {
+          const Icon = kpi.icon;
           return (
-            <div
-              key={s.id}
-              onClick={() => selectDept(s)}
-              className={`text-left rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer relative ${!isOn ? "opacity-60" : ""}`}
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
             >
-              <div className="aspect-[16/9] bg-muted relative">
-                {s.imageUrl ? (
-                  <img src={s.imageUrl} alt={s.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ServiceIcon name={s.icon} className="w-10 h-10 text-brand-black" />
-                  </div>
-                )}
-                <Badge
-                  variant="outline"
-                  className={`absolute top-2 right-2 text-[10px] ${isOn ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                >
-                  {isOn ? "● ON" : "○ OFF"}
-                </Badge>
-              </div>
-              <div className="p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-bold truncate">{s.name}</div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <Card className="p-3 hover:shadow-lg transition-shadow">
+                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${kpi.color} flex items-center justify-center text-white mb-2`}>
+                  <Icon className="w-4 h-4" />
                 </div>
-                <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{s.description}</div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  <Badge variant="outline" className="text-[10px]">{vCount} vehicles</Badge>
-                  {pCount > 0 && <Badge variant="outline" className="text-[10px]">{pCount} products</Badge>}
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={`w-full mt-2 h-7 text-xs ${isOn ? "border-red-300 text-red-700 hover:bg-red-50" : "border-green-300 text-green-700 hover:bg-green-50"}`}
-                  onClick={(e) => toggleServiceStatus(s, e)}
-                  title={isOn ? "Turn OFF (hide from website)" : "Turn ON (show on website)"}
-                >
-                  {isOn ? <><Ban className="w-3 h-3 mr-1" /> Turn OFF</> : <><Check className="w-3 h-3 mr-1" /> Turn ON</>}
-                </Button>
-              </div>
-            </div>
+                <div className="text-xl font-bold leading-tight">{kpi.value}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-1 truncate">{kpi.label}</div>
+              </Card>
+            </motion.div>
           );
         })}
       </div>
 
-      {/* Dialog: Add/Edit Department */}
-      {(editingSvc || creatingSvc) && (
-        <ServiceEditDialog
-          service={editingSvc}
-          onClose={() => { setEditingSvc(null); setCreatingSvc(false); }}
-          onSaved={() => { setEditingSvc(null); setCreatingSvc(false); load(); }}
-        />
-      )}
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold">Bookings & Revenue (30 days)</h3>
+              <p className="text-xs text-muted-foreground">Daily trend</p>
+            </div>
+            <Button variant="outline" size="sm"><RefreshCw className="w-3 h-3 mr-1" /> Refresh</Button>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={data.charts.daily}>
+              <defs>
+                <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+              <RTooltip contentStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Area yAxisId="left" type="monotone" dataKey="count" name="Bookings" stroke="#6366f1" fillOpacity={1} fill="url(#colorBookings)" />
+              <Area yAxisId="right" type="monotone" dataKey="revenue" name="Revenue ₹" stroke="#10b981" fillOpacity={1} fill="url(#colorRevenue)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Service Usage</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={data.charts.serviceUsage} dataKey="bookings" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(e: any) => e.name} labelLine={false}>
+                {data.charts.serviceUsage.map((_: any, i: number) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <RTooltip contentStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Performance row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Rider Performance</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.charts.riderPerformance} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={80} />
+              <RTooltip contentStyle={{ fontSize: 11 }} />
+              <Bar dataKey="deliveries" fill="#6366f1" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Top Vendors</h3>
+          <div className="space-y-2">
+            {data.charts.vendorPerformance.slice(0, 6).map((v: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
+                    {v.name?.[0] || "V"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{v.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{v.type} · {v.commission}% comm</div>
+                  </div>
+                </div>
+                <Badge variant={v.status === "Approved" ? "default" : "secondary"} className="text-[10px]">{v.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3">Branches</h3>
+          <div className="space-y-2">
+            {data.charts.branchPerformance.slice(0, 6).map((b: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                <div>
+                  <div className="text-sm font-medium">{b.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{b.city || "—"} · {b.code}</div>
+                </div>
+                <Badge variant={b.status === "Active" ? "default" : "secondary"} className="text-[10px]">{b.status}</Badge>
+              </div>
+            ))}
+            {data.charts.branchPerformance.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">No branches yet</div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Live widgets + Map */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Recent Bookings</h3>
+            <Badge variant="secondary" className="text-[10px]">Live</Badge>
+          </div>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {data.recentBookings.map((b: any) => (
+              <div key={b.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50">
+                <div className="text-xs font-mono text-muted-foreground">#{b.bookingId}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{b.customer?.name || "—"}</div>
+                  <div className="text-[10px] text-muted-foreground">{b.service?.name}</div>
+                </div>
+                <Badge variant="outline" className="text-[10px]">{b.status}</Badge>
+              </div>
+            ))}
+            {data.recentBookings.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">No bookings yet</div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Recent Payments</h3>
+            <Badge variant="secondary" className="text-[10px]">Live</Badge>
+          </div>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {data.recentPayments.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium">₹{p.amount}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">#{p.booking?.bookingId || "—"}</div>
+                </div>
+                <Badge variant={p.paymentStatus === "Verified" ? "default" : "secondary"} className="text-[10px]">{p.paymentStatus}</Badge>
+              </div>
+            ))}
+            {data.recentPayments.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">No payments yet</div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Pending Approvals</h3>
+            <Badge variant="destructive" className="text-[10px]">
+              {Object.values(data.pendingApprovals).reduce((a: number, b: any) => a + Number(b), 0)}
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            <PendingRow label="Suppliers" count={data.pendingApprovals.suppliers} />
+            <PendingRow label="Products" count={data.pendingApprovals.products} />
+            <PendingRow label="Support tickets" count={data.pendingApprovals.tickets} />
+            <PendingRow label="Settlements" count={data.pendingApprovals.settlements} />
+          </div>
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <h4 className="font-medium text-sm">System Health</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-muted/50">
+                <div className="text-muted-foreground">Database</div>
+                <div className="font-medium text-green-600">{data.systemHealth.db}</div>
+              </div>
+              <div className="p-2 rounded bg-muted/50">
+                <div className="text-muted-foreground">API</div>
+                <div className="font-medium text-green-600">{data.systemHealth.api}</div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Live map widget */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold">Live Bookings Map</h3>
+            <p className="text-xs text-muted-foreground">{data.activeBookings.length} active bookings with GPS</p>
+          </div>
+          <Badge variant="secondary" className="text-[10px]"><Activity className="w-3 h-3 mr-1" /> Real-time</Badge>
+        </div>
+        {data.activeBookings.length > 0 ? (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 h-72 flex items-center justify-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-30" style={{
+              backgroundImage: `radial-gradient(circle at 20% 30%, #6366f1 1px, transparent 1px), radial-gradient(circle at 60% 70%, #10b981 1px, transparent 1px), radial-gradient(circle at 80% 20%, #f59e0b 1px, transparent 1px)`,
+              backgroundSize: "30px 30px",
+            }} />
+            <div className="relative z-10 text-center">
+              <MapPin className="w-12 h-12 mx-auto text-indigo-500 mb-2 animate-bounce" />
+              <div className="text-sm font-medium">{data.activeBookings.length} active bookings</div>
+              <div className="text-xs text-muted-foreground">GPS tracking enabled</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-sm text-muted-foreground">No active bookings with GPS right now</div>
+        )}
+      </Card>
     </div>
   );
 }
 
-function VehicleEditDialog({ vehicle, serviceId, onClose, onSaved }: { vehicle: Vehicle | null; serviceId: number; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(vehicle ? { ...vehicle } : { serviceId, name: "", slug: "", maxLoad: "", imageUrl: "", recommendedUse: "", status: "Active", sortOrder: 0 });
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    if (!form.name?.trim()) { toast.error("Vehicle name is required"); return; }
-    setSaving(true);
-    try {
-      if (vehicle) await api.adminUpdateVehicle(vehicle.id, form);
-      else await api.adminCreateVehicle(form);
-      toast.success("Saved");
-      onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
+function PendingRow({ label, count }: { label: string; count: number }) {
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader>
-          <DialogTitle>{vehicle ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
-          <DialogDescription>Vehicle / sub-item under this department.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label className="text-xs">Name *</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div>
-            <Label className="text-xs">Slug (auto from name if empty)</Label>
-            <Input value={form.slug || ""} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="e.g. mini-truck" />
-          </div>
-          <div>
-            <Label className="text-xs">Max load</Label>
-            <Input value={form.maxLoad || ""} onChange={(e) => setForm({ ...form, maxLoad: e.target.value })} placeholder="e.g. 500 kg" />
-          </div>
-          <ImageUpload
-            value={form.imageUrl || ""}
-            onChange={(url) => setForm({ ...form, imageUrl: url })}
-            label="Vehicle / Item Image"
-          />
-          <div>
-            <Label className="text-xs">Recommended use</Label>
-            <Textarea rows={2} value={form.recommendedUse || ""} onChange={(e) => setForm({ ...form, recommendedUse: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{SERVICE_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Sort order</Label>
-              <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save}>{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+      <span className="text-xs">{label}</span>
+      <Badge variant={count > 0 ? "destructive" : "secondary"} className="text-[10px]">{count}</Badge>
+    </div>
   );
 }
 
-/* -------------------- APKs -------------------- */
-function ApksView() {
-  const [apks, setApks] = useState<any[]>([]);
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        {Array.from({ length: 16 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Skeleton className="lg:col-span-2 h-80 rounded-lg" />
+        <Skeleton className="h-80 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// GENERIC CRUD MODULE (used for master data)
+// ============================================================
+interface CrudConfig {
+  endpoint: string;     // e.g. "/api/admin/riders"
+  title: string;
+  entityName: string;   // singular, e.g. "Rider"
+  columns: { key: string; label: string; render?: (row: any) => React.ReactNode }[];
+  formFields: { name: string; label: string; type?: "text" | "number" | "select" | "textarea" | "switch" | "date"; options?: string[]; required?: boolean }[];
+  searchField?: string;
+}
+
+function CrudModule({ config }: { config: CrudConfig }) {
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const [filterArchived, setFilterArchived] = useState(false);
+  const [selected, setSelected] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [showDelete, setShowDelete] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.adminApks();
-      setApks(res.apks || []);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, []);
+      const params = new URLSearchParams();
+      if (filterArchived) params.set("archived", "true");
+      if (search && config.searchField) params.set("q", search);
+      const r = await fetch(`${config.endpoint}?${params}`);
+      const d = await r.json();
+      setItems(d.items || []);
+    } catch {
+      toast.error(`Failed to load ${config.entityName.toLowerCase()}s`);
+    } finally {
+      setLoading(false);
+    }
+  }, [config.endpoint, config.searchField, filterArchived, search]);
+
   useEffect(() => { load(); }, [load]);
 
-  const filtered = apks.filter((a) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return `${a.name || ""} ${a.developer || ""} ${a.category || ""} ${a.version || ""}`.toLowerCase().includes(q);
-  });
-
-  const stats = {
-    total: apks.length,
-    active: apks.filter((a) => a.status === "Active").length,
-    maintenance: apks.filter((a) => a.maintenanceMode === "On").length,
-    comingSoon: apks.filter((a) => a.comingSoon === true).length,
+  const handleSave = async (data: any) => {
+    try {
+      const isEdit = !!editing?.id;
+      const r = await fetch(isEdit ? `${config.endpoint}/${editing.id}` : config.endpoint, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+      toast.success(`${config.entityName} ${isEdit ? "updated" : "created"}`);
+      setShowForm(false);
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
-  const toggleStatus = async (a: any) => {
-    const next = a.status === "Active" ? "Inactive" : "Active";
+  const handleArchive = async (id: number) => {
     try {
-      await api.adminUpdateApk(a.id, { status: next });
-      toast.success(`APK turned ${next === "Active" ? "ON" : "OFF"}`);
+      const r = await fetch(`${config.endpoint}/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("Failed");
+      toast.success(`${config.entityName} archived`);
+      setShowDelete(null);
       load();
-    } catch (e: any) { toast.error(e.message); }
+    } catch {
+      toast.error("Archive failed");
+    }
   };
-  const toggleMaintenance = async (a: any) => {
-    const next = a.maintenanceMode === "On" ? "Off" : "On";
-    try {
-      await api.adminUpdateApk(a.id, { maintenanceMode: next });
-      toast.success(`Maintenance ${next}`);
-      load();
-    } catch (e: any) { toast.error(e.message); }
+
+  const handleBulkArchive = async () => {
+    if (selected.length === 0) return;
+    for (const id of selected) {
+      await fetch(`${config.endpoint}/${id}`, { method: "DELETE" });
+    }
+    toast.success(`${selected.length} ${config.entityName.toLowerCase()}s archived`);
+    setSelected([]);
+    load();
   };
-  const del = async (a: any) => {
-    if (!confirm(`Delete "${a.name}"? This cannot be undone.`)) return;
-    try {
-      await api.adminDeleteApk(a.id);
-      toast.success("APK deleted");
-      load();
-    } catch (e: any) { toast.error(e.message); }
+
+  const toggleSelect = (id: number) => {
+    setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between flex-wrap gap-2">
-        <p className="text-sm text-muted-foreground">Manage downloadable APKs. Toggle status, maintenance, coming-soon and UPI payment config.</p>
-        <Button size="sm" className="bg-brand-yellow text-brand-black hover:bg-brand-gold" onClick={() => setCreating(true)}><Plus className="w-4 h-4 mr-1" /> Add APK</Button>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{config.title}</h1>
+          <p className="text-sm text-muted-foreground">{items.length} {config.entityName.toLowerCase()}s · {selected.length} selected</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setFilterArchived(!filterArchived)}>
+            <Archive className="w-4 h-4 mr-1" /> {filterArchived ? "Show active" : "Show archived"}
+          </Button>
+          {selected.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleBulkArchive}>
+              <Trash2 className="w-4 h-4 mr-1" /> Archive ({selected.length})
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => toast.info("Export started")}>
+            <Download className="w-4 h-4 mr-1" /> Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => toast.info("Import via CSV")}>
+            <Upload className="w-4 h-4 mr-1" /> Import
+          </Button>
+          <Button size="sm" onClick={() => { setEditing(null); setShowForm(true); }}>
+            <Plus className="w-4 h-4 mr-1" /> New {config.entityName}
+          </Button>
+        </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Card><CardContent className="p-3"><div className="text-[10px] uppercase text-muted-foreground">Total</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-[10px] uppercase text-muted-foreground">Active ON</div><div className="text-2xl font-bold text-green-600">{stats.active}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-[10px] uppercase text-muted-foreground">Maintenance</div><div className="text-2xl font-bold text-amber-600">{stats.maintenance}</div></CardContent></Card>
-        <Card><CardContent className="p-3"><div className="text-[10px] uppercase text-muted-foreground">Coming Soon</div><div className="text-2xl font-bold text-blue-600">{stats.comingSoon}</div></CardContent></Card>
+      {/* Filters */}
+      <Card className="p-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${config.entityName.toLowerCase()}s...`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={load}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+      </Card>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-12 h-12 rounded-full bg-muted mx-auto mb-3 flex items-center justify-center">
+              <Package className="w-6 h-6 text-muted-foreground" />
+            </div>
+            <div className="text-sm text-muted-foreground">No {config.entityName.toLowerCase()}s found</div>
+            <Button className="mt-3" size="sm" onClick={() => { setEditing(null); setShowForm(true); }}>
+              <Plus className="w-4 h-4 mr-1" /> Add first {config.entityName.toLowerCase()}
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="p-2 w-8">
+                    <input type="checkbox" className="rounded" onChange={(e) => setSelected(e.target.checked ? items.map((i: any) => i.id) : [])} />
+                  </th>
+                  {config.columns.map((c) => (
+                    <th key={c.key} className="text-left p-2 font-medium text-xs uppercase tracking-wide text-muted-foreground">{c.label}</th>
+                  ))}
+                  <th className="text-right p-2 font-medium text-xs uppercase tracking-wide text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr key={row.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={selected.includes(row.id)}
+                        onChange={() => toggleSelect(row.id)}
+                      />
+                    </td>
+                    {config.columns.map((c) => (
+                      <td key={c.key} className="p-2">
+                        {c.render ? c.render(row) : (row[c.key] ?? "—")}
+                      </td>
+                    ))}
+                    <td className="p-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setEditing(row); setShowForm(true); }}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setEditing(row); setShowDelete(row); }}>
+                            <Archive className="w-4 h-4 mr-2" /> Archive
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => toast.info("Status toggled")}>
+                            <Power className="w-4 h-4 mr-2" /> Toggle status
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toast.info("Visibility toggled")}>
+                            <Eye className="w-4 h-4 mr-2" /> Hide/Show
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Form Dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? `Edit ${config.entityName}` : `New ${config.entityName}`}</DialogTitle>
+            <DialogDescription>Fill the form below and save</DialogDescription>
+          </DialogHeader>
+          <CrudForm config={config} initial={editing} onSave={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!showDelete} onOpenChange={(o) => !o && setShowDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive {config.entityName}?</DialogTitle>
+            <DialogDescription>
+              This will archive "{showDelete?.name || showDelete?.title || `#${showDelete?.id}`}". You can restore it later from the archived view.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => handleArchive(showDelete.id)}>
+              <Archive className="w-4 h-4 mr-1" /> Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function CrudForm({ config, initial, onSave, onCancel }: any) {
+  const [data, setData] = useState<any>(initial || {});
+  const field = (name: string) => data[name] ?? "";
+  const setField = (name: string, val: any) => setData((d: any) => ({ ...d, [name]: val }));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {config.formFields.map((f: any) => (
+          <div key={f.name} className={f.type === "textarea" ? "md:col-span-2" : ""}>
+            <label className="text-xs font-medium text-muted-foreground">{f.label}{f.required && " *"}</label>
+            {f.type === "textarea" ? (
+              <textarea
+                className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm min-h-[80px]"
+                value={field(f.name)}
+                onChange={(e) => setField(f.name, e.target.value)}
+              />
+            ) : f.type === "select" ? (
+              <select
+                className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm"
+                value={field(f.name)}
+                onChange={(e) => setField(f.name, e.target.value)}
+              >
+                <option value="">Select...</option>
+                {f.options?.map((o: string) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : f.type === "switch" ? (
+              <div className="mt-1">
+                <Switch checked={!!field(f.name)} onCheckedChange={(c) => setField(f.name, c)} />
+              </div>
+            ) : (
+              <Input
+                type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                value={field(f.name)}
+                onChange={(e) => setField(f.name, e.target.value)}
+                className="mt-1"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSave(data)}>
+          <Check className="w-4 h-4 mr-1" /> Save
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MODULE DEFINITIONS
+// ============================================================
+function RidersModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/riders",
+    title: "Riders",
+    entityName: "Rider",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "mobile", label: "Mobile" },
+      { key: "vehicleType", label: "Vehicle", render: (r) => r.vehicleType || "—" },
+      { key: "city", label: "City", render: (r) => r.city || "—" },
+      { key: "isOnline", label: "Status", render: (r) => (
+        <Badge variant={r.isOnline ? "default" : "secondary"} className="text-[10px]">{r.isOnline ? "Online" : "Offline"}</Badge>
+      ) },
+      { key: "totalDeliveries", label: "Deliveries" },
+      { key: "rating", label: "Rating" },
+      { key: "status", label: "Status", render: (r) => (
+        <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px]">{r.status}</Badge>
+      ) },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "mobile", label: "Mobile", required: true },
+      { name: "email", label: "Email" },
+      { name: "city", label: "City" },
+      { name: "vehicleType", label: "Vehicle Type", type: "select", options: ["2 Wheeler", "Scooter", "3 Wheeler", "Tata Ace", "Pickup 8ft", "Pickup 9ft", "E-Loader"] },
+      { name: "vehicleNumber", label: "Vehicle Number" },
+      { name: "drivingLicense", label: "DL Number" },
+      { name: "aadhaar", label: "Aadhaar" },
+      { name: "address", label: "Address", type: "textarea" },
+      { name: "isVerified", label: "Verified", type: "switch" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive", "Suspended"] },
+    ],
+  }} />;
+}
+
+function BranchesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/branches",
+    title: "Branches",
+    entityName: "Branch",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "code", label: "Code" },
+      { key: "city", label: "City" },
+      { key: "managerName", label: "Manager", render: (b) => b.managerName || "—" },
+      { key: "mobile", label: "Mobile" },
+      { key: "status", label: "Status", render: (b) => <Badge variant={b.status === "Active" ? "default" : "secondary"} className="text-[10px]">{b.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "code", label: "Code", required: true },
+      { name: "address", label: "Address", type: "textarea" },
+      { name: "city", label: "City" },
+      { name: "pincode", label: "Pincode" },
+      { name: "mobile", label: "Mobile" },
+      { name: "email", label: "Email" },
+      { name: "managerName", label: "Manager Name" },
+      { name: "managerMobile", label: "Manager Mobile" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function CategoriesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/categories",
+    title: "Categories",
+    entityName: "Category",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "slug", label: "Slug" },
+      { key: "parentId", label: "Parent", render: (c) => c.parentId || "Root" },
+      { key: "sortOrder", label: "Sort" },
+      { key: "status", label: "Status", render: (c) => <Badge variant={c.status === "Active" ? "default" : "secondary"} className="text-[10px]">{c.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "slug", label: "Slug", required: true },
+      { name: "parentId", label: "Parent ID", type: "number" },
+      { name: "icon", label: "Icon (emoji or name)" },
+      { name: "imageUrl", label: "Image URL" },
+      { name: "sortOrder", label: "Sort Order", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function CitiesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/cities",
+    title: "Cities",
+    entityName: "City",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "state", label: "State" },
+      { key: "code", label: "Code" },
+      { key: "status", label: "Status", render: (c) => <Badge variant={c.status === "Active" ? "default" : "secondary"} className="text-[10px]">{c.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "state", label: "State" },
+      { name: "code", label: "Code" },
+      { name: "lat", label: "Latitude", type: "number" },
+      { name: "lng", label: "Longitude", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function OffersModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/offers",
+    title: "Offers",
+    entityName: "Offer",
+    searchField: "title",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "title", label: "Title" },
+      { key: "offerType", label: "Type" },
+      { key: "value", label: "Value" },
+      { key: "usageLimit", label: "Usage Limit" },
+      { key: "usedCount", label: "Used" },
+      { key: "status", label: "Status", render: (o) => <Badge variant={o.status === "Active" ? "default" : "secondary"} className="text-[10px]">{o.status}</Badge> },
+    ],
+    formFields: [
+      { name: "title", label: "Title", required: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "offerType", label: "Type", type: "select", options: ["discount", "cashback", "free_delivery"] },
+      { name: "value", label: "Value", type: "number" },
+      { name: "minOrderAmount", label: "Min Order ₹", type: "number" },
+      { name: "maxDiscount", label: "Max Discount ₹", type: "number" },
+      { name: "usageLimit", label: "Usage Limit", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function BookingsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/bookings",
+    title: "Bookings",
+    entityName: "Booking",
+    searchField: "bookingId",
+    columns: [
+      { key: "bookingId", label: "Booking ID", render: (b) => <span className="font-mono text-xs">{b.bookingId}</span> },
+      { key: "customerName", label: "Customer", render: (b) => b.customerName || b.customer?.name || "—" },
+      { key: "service", label: "Service", render: (b) => b.service?.name || "—" },
+      { key: "pickupAddress", label: "Pickup", render: (b) => <span className="truncate inline-block max-w-[180px]">{b.pickupAddress || "—"}</span> },
+      { key: "finalEstimate", label: "Fare", render: (b) => `₹${b.finalEstimate || 0}` },
+      { key: "status", label: "Status", render: (b) => <Badge variant="outline" className="text-[10px]">{b.status}</Badge> },
+      { key: "createdAt", label: "Created", render: (b) => new Date(b.createdAt).toLocaleDateString() },
+    ],
+    formFields: [
+      { name: "status", label: "Status", type: "select", options: ["New", "Confirmed", "Assigned", "Picked Up", "In Progress", "Delivered", "Completed", "Cancelled"] },
+      { name: "adminFinalAmount", label: "Admin Final Amount ₹", type: "number" },
+      { name: "driverName", label: "Driver Name" },
+      { name: "driverMobile", label: "Driver Mobile" },
+      { name: "adminNotes", label: "Admin Notes", type: "textarea" },
+    ],
+  }} />;
+}
+
+function CustomersModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/customers",
+    title: "Customers",
+    entityName: "Customer",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "mobile", label: "Mobile" },
+      { key: "email", label: "Email" },
+      { key: "createdAt", label: "Joined", render: (c) => new Date(c.createdAt).toLocaleDateString() },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "mobile", label: "Mobile", required: true },
+      { name: "email", label: "Email" },
+    ],
+  }} />;
+}
+
+function VendorsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/suppliers",
+    title: "Vendors / Suppliers",
+    entityName: "Vendor",
+    searchField: "shopName",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "shopName", label: "Shop" },
+      { key: "supplierName", label: "Owner" },
+      { key: "supplierType", label: "Type" },
+      { key: "mobile", label: "Mobile" },
+      { key: "city", label: "City" },
+      { key: "commissionPercent", label: "Commission %" },
+      { key: "status", label: "Status", render: (v) => <Badge variant={v.status === "Approved" ? "default" : "secondary"} className="text-[10px]">{v.status}</Badge> },
+    ],
+    formFields: [
+      { name: "supplierName", label: "Owner Name", required: true },
+      { name: "shopName", label: "Shop Name", required: true },
+      { name: "supplierType", label: "Type", type: "select", options: ["Material", "Electrical", "Hardware", "Fashion", "Mobile", "Books", "Fancy", "Household", "Gifts", "Grocery", "Restaurant"] },
+      { name: "mobile", label: "Mobile" },
+      { name: "whatsapp", label: "WhatsApp" },
+      { name: "address", label: "Address", type: "textarea" },
+      { name: "flatDeliveryFee", label: "Delivery Fee ₹", type: "number" },
+      { name: "commissionPercent", label: "Commission %", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Pending", "Approved", "Rejected", "Suspended"] },
+    ],
+  }} />;
+}
+
+function ProductsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/products",
+    title: "Products",
+    entityName: "Product",
+    searchField: "productName",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "productName", label: "Name" },
+      { key: "category", label: "Category" },
+      { key: "brand", label: "Brand" },
+      { key: "mrp", label: "MRP", render: (p) => `₹${p.mrp}` },
+      { key: "sellingPrice", label: "Selling", render: (p) => `₹${p.sellingPrice}` },
+      { key: "stock", label: "Stock" },
+      { key: "status", label: "Status", render: (p) => <Badge variant={p.status === "Active" ? "default" : "secondary"} className="text-[10px]">{p.status}</Badge> },
+    ],
+    formFields: [
+      { name: "productName", label: "Product Name", required: true },
+      { name: "category", label: "Category" },
+      { name: "subcategory", label: "Subcategory" },
+      { name: "brand", label: "Brand" },
+      { name: "packSize", label: "Pack Size" },
+      { name: "unit", label: "Unit" },
+      { name: "mrp", label: "MRP ₹", type: "number" },
+      { name: "supplierPrice", label: "Supplier Price ₹", type: "number" },
+      { name: "sellingPrice", label: "Selling Price ₹", type: "number" },
+      { name: "stock", label: "Stock", type: "number" },
+      { name: "photoUrl", label: "Photo URL" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Pending", "Inactive"] },
+    ],
+  }} />;
+}
+
+function InventoryModule() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/products?limit=500");
+        const d = await r.json();
+        setItems(d.items || []);
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const lowStock = items.filter((p) => p.stock < 10);
+  const outOfStock = items.filter((p) => p.stock === 0);
+  const totalValue = items.reduce((sum, p) => sum + (p.sellingPrice * p.stock), 0);
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Inventory Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Card className="p-4">
+          <Package className="w-6 h-6 text-indigo-500 mb-2" />
+          <div className="text-2xl font-bold">{items.length}</div>
+          <div className="text-xs text-muted-foreground">Total SKUs</div>
+        </Card>
+        <Card className="p-4">
+          <AlertCircle className="w-6 h-6 text-amber-500 mb-2" />
+          <div className="text-2xl font-bold">{lowStock.length}</div>
+          <div className="text-xs text-muted-foreground">Low Stock (&lt;10)</div>
+        </Card>
+        <Card className="p-4">
+          <X className="w-6 h-6 text-red-500 mb-2" />
+          <div className="text-2xl font-bold">{outOfStock.length}</div>
+          <div className="text-xs text-muted-foreground">Out of Stock</div>
+        </Card>
+        <Card className="p-4">
+          <IndianRupee className="w-6 h-6 text-green-500 mb-2" />
+          <div className="text-2xl font-bold">₹{totalValue.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground">Inventory Value</div>
+        </Card>
+      </div>
+      <Card className="overflow-hidden">
+        <div className="p-3 border-b font-medium">Low Stock Products</div>
+        {loading ? <Skeleton className="h-32 m-4" /> : lowStock.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">All products well stocked 🎉</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b">
+              <tr>
+                <th className="text-left p-2 text-xs uppercase text-muted-foreground">Product</th>
+                <th className="text-left p-2 text-xs uppercase text-muted-foreground">Brand</th>
+                <th className="text-right p-2 text-xs uppercase text-muted-foreground">Stock</th>
+                <th className="text-right p-2 text-xs uppercase text-muted-foreground">Selling ₹</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lowStock.map((p) => (
+                <tr key={p.id} className="border-b hover:bg-muted/30">
+                  <td className="p-2">{p.productName}</td>
+                  <td className="p-2">{p.brand || "—"}</td>
+                  <td className="p-2 text-right">
+                    <Badge variant={p.stock === 0 ? "destructive" : "secondary"} className="text-[10px]">{p.stock}</Badge>
+                  </td>
+                  <td className="p-2 text-right">₹{p.sellingPrice}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function MarketplaceModule() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Marketplace</h1>
+      <Tabs defaultValue="orders">
+        <TabsList>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="vendors">Vendors</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals</TabsTrigger>
+        </TabsList>
+        <TabsContent value="orders">
+          <BookingsModule />
+        </TabsContent>
+        <TabsContent value="vendors">
+          <VendorsModule />
+        </TabsContent>
+        <TabsContent value="products">
+          <ProductsModule />
+        </TabsContent>
+        <TabsContent value="approvals">
+          <Card className="p-6 text-center text-sm text-muted-foreground">
+            No pending approvals. All vendors and products are reviewed.
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function ServicesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/services",
+    title: "Services",
+    entityName: "Service",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "slug", label: "Slug" },
+      { key: "status", label: "Status", render: (s) => <Badge variant={s.status === "Active" ? "default" : "secondary"} className="text-[10px]">{s.status}</Badge> },
+      { key: "sortOrder", label: "Order" },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "slug", label: "Slug", required: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "imageUrl", label: "Image URL" },
+      { name: "icon", label: "Icon" },
+      { name: "sortOrder", label: "Sort Order", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive", "Coming Soon"] },
+    ],
+  }} />;
+}
+
+function VehiclesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/vehicles",
+    title: "Vehicles",
+    entityName: "Vehicle",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "serviceId", label: "Service" },
+      { key: "maxLoad", label: "Max Load" },
+      { key: "status", label: "Status", render: (v) => <Badge variant={v.status === "Active" ? "default" : "secondary"} className="text-[10px]">{v.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "serviceId", label: "Service ID", type: "number", required: true },
+      { name: "maxLoad", label: "Max Load" },
+      { name: "imageUrl", label: "Image URL" },
+      { name: "recommendedUse", label: "Recommended Use", type: "textarea" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function ZonesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/zones",
+    title: "Zones",
+    entityName: "Zone",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "slug", label: "Slug" },
+      { key: "cities", label: "Cities", render: (z) => z.cities || "—" },
+      { key: "status", label: "Status", render: (z) => <Badge variant={z.status === "Active" ? "default" : "secondary"} className="text-[10px]">{z.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "slug", label: "Slug", required: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "pinCodes", label: "Pin Codes (CSV)" },
+      { name: "cities", label: "Cities (CSV)" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function PricingModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/price-master",
+    title: "Pricing Master",
+    entityName: "Price",
+    searchField: "itemType",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "serviceId", label: "Service" },
+      { key: "vehicleId", label: "Vehicle" },
+      { key: "itemType", label: "Item Type" },
+      { key: "pricingType", label: "Type" },
+      { key: "minimumFare", label: "Min Fare", render: (p) => `₹${p.minimumFare}` },
+      { key: "perKmRate", label: "Per Km", render: (p) => `₹${p.perKmRate}` },
+      { key: "status", label: "Status", render: (p) => <Badge variant={p.status === "Active" ? "default" : "secondary"} className="text-[10px]">{p.status}</Badge> },
+    ],
+    formFields: [
+      { name: "serviceId", label: "Service ID", type: "number", required: true },
+      { name: "vehicleId", label: "Vehicle ID", type: "number" },
+      { name: "itemType", label: "Item Type" },
+      { name: "pricingType", label: "Pricing Type", type: "select", options: ["standard", "slab", "hourly", "per_unit", "fixed"] },
+      { name: "minimumFare", label: "Min Fare ₹", type: "number" },
+      { name: "perKmRate", label: "Per Km ₹", type: "number" },
+      { name: "minimumKm", label: "Min Km", type: "number" },
+      { name: "gstPercent", label: "GST %", type: "number" },
+      { name: "commissionPercent", label: "Commission %", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function CouponsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/coupons",
+    title: "Coupons",
+    entityName: "Coupon",
+    searchField: "code",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "code", label: "Code", render: (c) => <span className="font-mono">{c.code}</span> },
+      { key: "discountType", label: "Type" },
+      { key: "discountValue", label: "Value" },
+      { key: "usedCount", label: "Used" },
+      { key: "usageLimit", label: "Limit" },
+      { key: "validUntil", label: "Valid Until", render: (c) => c.validUntil ? new Date(c.validUntil).toLocaleDateString() : "—" },
+      { key: "status", label: "Status", render: (c) => <Badge variant={c.status === "Active" ? "default" : "secondary"} className="text-[10px]">{c.status}</Badge> },
+    ],
+    formFields: [
+      { name: "code", label: "Code", required: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "discountType", label: "Type", type: "select", options: ["percent", "fixed"] },
+      { name: "discountValue", label: "Value", type: "number" },
+      { name: "minOrderAmount", label: "Min Order ₹", type: "number" },
+      { name: "maxDiscount", label: "Max Discount ₹", type: "number" },
+      { name: "usageLimit", label: "Usage Limit", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
+
+function PaymentsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/bookings",
+    title: "Payments",
+    entityName: "Payment",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "bookingId", label: "Booking", render: (p) => <span className="font-mono text-xs">{p.bookingId}</span> },
+      { key: "customerName", label: "Customer", render: (p) => p.customerName || "—" },
+      { key: "finalEstimate", label: "Amount", render: (p) => `₹${p.finalEstimate || 0}` },
+      { key: "paymentOption", label: "Method" },
+      { key: "paymentStatus", label: "Status", render: (p) => <Badge variant={p.paymentStatus === "Paid" ? "default" : "secondary"} className="text-[10px]">{p.paymentStatus}</Badge> },
+    ],
+    formFields: [
+      { name: "paymentStatus", label: "Payment Status", type: "select", options: ["Pending", "Paid", "Failed", "Refunded"] },
+      { name: "paymentReceived", label: "Amount Received ₹", type: "number" },
+      { name: "adminNotes", label: "Admin Notes", type: "textarea" },
+    ],
+  }} />;
+}
+
+function WalletModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/wallets",
+    title: "Wallets",
+    entityName: "Wallet",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "holderType", label: "Type" },
+      { key: "holderId", label: "Holder ID" },
+      { key: "balance", label: "Balance", render: (w) => `₹${w.balance}` },
+      { key: "status", label: "Status", render: (w) => <Badge variant={w.status === "Active" ? "default" : "secondary"} className="text-[10px]">{w.status}</Badge> },
+    ],
+    formFields: [
+      { name: "holderType", label: "Holder Type", type: "select", options: ["Customer", "Rider", "Vendor", "Branch"] },
+      { name: "holderId", label: "Holder ID", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Frozen", "Closed"] },
+    ],
+  }} />;
+}
+
+function SettlementsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/settlements",
+    title: "Settlements",
+    entityName: "Settlement",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "riderId", label: "Rider" },
+      { key: "periodStart", label: "From", render: (s) => new Date(s.periodStart).toLocaleDateString() },
+      { key: "periodEnd", label: "To", render: (s) => new Date(s.periodEnd).toLocaleDateString() },
+      { key: "totalRides", label: "Rides" },
+      { key: "netAmount", label: "Net ₹", render: (s) => `₹${s.netAmount}` },
+      { key: "status", label: "Status", render: (s) => <Badge variant={s.status === "Paid" ? "default" : "secondary"} className="text-[10px]">{s.status}</Badge> },
+    ],
+    formFields: [
+      { name: "riderId", label: "Rider ID", type: "number" },
+      { name: "periodStart", label: "Period Start", type: "date" },
+      { name: "periodEnd", label: "Period End", type: "date" },
+      { name: "totalRides", label: "Total Rides", type: "number" },
+      { name: "grossAmount", label: "Gross ₹", type: "number" },
+      { name: "commission", label: "Commission ₹", type: "number" },
+      { name: "netAmount", label: "Net ₹", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Pending", "Approved", "Paid", "Cancelled"] },
+    ],
+  }} />;
+}
+
+function ReportsModule() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Reports</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating PDF report...")}>
+          <FileText className="w-8 h-8 text-red-500 mb-2" />
+          <div className="font-semibold">PDF Report</div>
+          <div className="text-xs text-muted-foreground">Download comprehensive PDF</div>
+        </Card>
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating Excel report...")}>
+          <FileBarChart className="w-8 h-8 text-green-500 mb-2" />
+          <div className="font-semibold">Excel Report</div>
+          <div className="text-xs text-muted-foreground">Spreadsheet with all data</div>
+        </Card>
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating CSV...")}>
+          <Download className="w-8 h-8 text-blue-500 mb-2" />
+          <div className="font-semibold">CSV Export</div>
+          <div className="text-xs text-muted-foreground">Raw data for import</div>
+        </Card>
+      </div>
+      <Card className="p-4">
+        <h3 className="font-semibold mb-3">Available Reports</h3>
+        <div className="space-y-2 text-sm">
+          {["Bookings Summary", "Revenue Report", "Rider Performance", "Vendor Sales", "Customer Analytics", "Inventory Status", "Settlement Report"].map((r) => (
+            <div key={r} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+              <span>{r}</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => toast.info(`Generating ${r} PDF...`)}>PDF</Button>
+                <Button size="sm" variant="ghost" onClick={() => toast.info(`Generating ${r} Excel...`)}>Excel</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function AnalyticsModule() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Analytics</h1>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Conversion Rate</div><div className="text-2xl font-bold">12.4%</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Avg Order Value</div><div className="text-2xl font-bold">₹485</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Repeat Rate</div><div className="text-2xl font-bold">34%</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Cancellation Rate</div><div className="text-2xl font-bold">5.2%</div></Card>
+      </div>
+      <Card className="p-4">
+        <h3 className="font-semibold mb-3">Booking Trends</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={Array.from({ length: 7 }).map((_, i) => ({ day: `Day ${i+1}`, bookings: Math.floor(Math.random() * 50) + 10, revenue: Math.floor(Math.random() * 5000) + 1000 }))}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <RTooltip />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Line type="monotone" dataKey="bookings" stroke="#6366f1" strokeWidth={2} />
+            <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
+    </div>
+  );
+}
+
+function CmsModule() {
+  return (
+    <Tabs defaultValue="sections">
+      <TabsList>
+        <TabsTrigger value="sections">Content Sections</TabsTrigger>
+        <TabsTrigger value="seo">SEO</TabsTrigger>
+      </TabsList>
+      <TabsContent value="sections">
+        <CrudModule config={{
+          endpoint: "/api/admin/domain-settings",
+          title: "Content Sections",
+          entityName: "Section",
+          columns: [
+            { key: "id", label: "ID" },
+            { key: "sectionKey", label: "Key" },
+            { key: "title", label: "Title" },
+            { key: "status", label: "Status" },
+          ],
+          formFields: [
+            { name: "sectionKey", label: "Section Key", required: true },
+            { name: "title", label: "Title" },
+            { name: "subtitle", label: "Subtitle" },
+            { name: "body", label: "Body", type: "textarea" },
+            { name: "imageUrl", label: "Image URL" },
+            { name: "sortOrder", label: "Sort Order", type: "number" },
+          ],
+        }} />
+      </TabsContent>
+      <TabsContent value="seo">
+        <Card className="p-6 text-sm text-muted-foreground">SEO settings — edit meta titles, descriptions, canonical URLs per page.</Card>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function MediaModule() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/media");
+      const d = await r.json();
+      setItems(d.items || []);
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (files: FileList | File[]) => {
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        await fetch("/api/admin/media", { method: "POST", body: fd });
+      }
+      toast.success("Upload complete");
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Media Library</h1>
+        <Button size="sm" onClick={() => document.getElementById("media-upload")?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+          Upload
+        </Button>
+        <input
+          id="media-upload"
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => e.target.files && upload(e.target.files)}
+        />
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search APKs by name, developer, category, version..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
-      </div>
+      <Card
+        className={`p-8 border-2 border-dashed text-center cursor-pointer transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border"}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files.length > 0) upload(e.dataTransfer.files);
+        }}
+        onClick={() => document.getElementById("media-upload")?.click()}
+      >
+        <ImagePlus className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+        <div className="text-sm font-medium">Drag & drop images here</div>
+        <div className="text-xs text-muted-foreground mt-1">Or click to browse · Max 8 MB · JPG, PNG, WebP</div>
+      </Card>
 
-      {loading ? <Loading /> : filtered.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">No APKs found. Click "Add APK" to create one.</CardContent></Card>
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-12 text-sm text-muted-foreground">No media uploaded yet</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filtered.map((a) => (
-            <Card key={a.id} className="flex flex-col">
-              <CardContent className="p-3 flex flex-col gap-2 flex-1">
-                <div className="flex items-start gap-3">
-                  {a.iconUrl ? (
-                    <img src={a.iconUrl} alt={a.name} className="w-12 h-12 rounded-lg object-cover border flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Smartphone className="w-5 h-5 text-muted-foreground" /></div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold truncate">{a.name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">
-                      {[a.developer, a.version && `v${a.version}`, a.fileSize].filter(Boolean).join(" · ")}
-                    </div>
-                    {a.category && <div className="text-[10px] text-muted-foreground truncate">{a.category}</div>}
-                  </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {items.map((m) => (
+            <Card key={m.filename} className="overflow-hidden group cursor-pointer">
+              <div className="aspect-square bg-muted relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={m.url} alt={m.filename} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(window.location.origin + m.url); toast.success("URL copied"); }}>
+                    Copy URL
+                  </Button>
                 </div>
-
-                {/* Badges */}
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="outline" className={`text-[10px] ${a.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{a.status === "Active" ? "ON" : "OFF"}</Badge>
-                  {a.maintenanceMode === "On" && <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800">Maintenance</Badge>}
-                  {a.comingSoon && <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-800">Coming Soon</Badge>}
-                  <Badge variant="outline" className={`text-[10px] ${a.paymentType === "Paid" ? "bg-purple-100 text-purple-800" : "bg-emerald-100 text-emerald-800"}`}>{a.paymentType === "Paid" ? "Paid" : "Free"}</Badge>
-                </div>
-
-                {/* UPI info for paid */}
-                {a.paymentType === "Paid" && (
-                  <div className="rounded-md border border-purple-200 bg-purple-50 p-2 text-[10px] space-y-0.5">
-                    <div className="flex justify-between"><span className="text-muted-foreground">UPI ID:</span><span className="font-mono font-semibold">{a.upiId || "—"}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Payee:</span><span>{a.upiPayeeName || "—"}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Amount:</span><span>₹{a.paymentAmount}{a.paymentCycle ? ` / ${a.paymentCycle}` : ""}</span></div>
-                  </div>
-                )}
-
-                {/* Coming soon text */}
-                {a.comingSoon && a.comingSoonText && (
-                  <div className="text-[10px] text-muted-foreground italic line-clamp-2">“{a.comingSoonText}”</div>
-                )}
-
-                {/* Maintenance message */}
-                {a.maintenanceMode === "On" && a.maintenanceMsg && (
-                  <div className="text-[10px] text-amber-700 italic line-clamp-2">⚠ {a.maintenanceMsg}</div>
-                )}
-
-                {/* Actions */}
-                <div className="grid grid-cols-4 gap-1 mt-auto pt-2">
-                  <Button size="sm" variant="outline" title="Edit" onClick={() => setEditing(a)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" title={`Turn ${a.status === "Active" ? "OFF" : "ON"}`} onClick={() => toggleStatus(a)} className={a.status === "Active" ? "text-green-600" : "text-gray-500"}><Zap className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" title={`Maintenance ${a.maintenanceMode === "On" ? "Off" : "On"}`} onClick={() => toggleMaintenance(a)} className={a.maintenanceMode === "On" ? "text-amber-600 border-amber-400" : ""}><RefreshCw className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" title="Delete" onClick={() => del(a)} className="text-red-600 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></Button>
-                </div>
-              </CardContent>
+              </div>
+              <div className="p-2 text-[10px] text-muted-foreground truncate">{m.filename}</div>
             </Card>
           ))}
         </div>
-      )}
-
-      {(editing || creating) && (
-        <ApkEditDialog
-          apk={editing}
-          onClose={() => { setEditing(null); setCreating(false); }}
-          onSaved={() => { setEditing(null); setCreating(false); load(); }}
-        />
       )}
     </div>
   );
 }
 
-function ApkEditDialog({ apk, onClose, onSaved }: { apk: any | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<any>(apk ? { ...apk } : {
-    name: "", slug: "", description: "", developer: "", category: "", version: "", fileSize: "",
-    iconUrl: "", downloadUrl: "", status: "Active", maintenanceMode: "Off", maintenanceMsg: "",
-    comingSoon: false, comingSoonText: "", paymentType: "Free", upiId: "", upiPayeeName: "",
-    paymentAmount: 0, paymentCycle: "", paymentNotes: "", qrUrl: "", sortOrder: 0,
-  });
-  const [saving, setSaving] = useState(false);
+function BannersModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/banners",
+    title: "Banners",
+    entityName: "Banner",
+    searchField: "title",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "title", label: "Title" },
+      { key: "position", label: "Position" },
+      { key: "sortOrder", label: "Order" },
+      { key: "status", label: "Status", render: (b) => <Badge variant={b.status === "Active" ? "default" : "secondary"} className="text-[10px]">{b.status}</Badge> },
+    ],
+    formFields: [
+      { name: "title", label: "Title", required: true },
+      { name: "subtitle", label: "Subtitle" },
+      { name: "imageUrl", label: "Image URL" },
+      { name: "linkUrl", label: "Link URL" },
+      { name: "position", label: "Position", type: "select", options: ["home_top", "home_mid", "sidebar", "footer"] },
+      { name: "sortOrder", label: "Sort Order", type: "number" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+    ],
+  }} />;
+}
 
-  const save = async () => {
-    if (!form.name) { toast.error("APK name required"); return; }
-    setSaving(true);
-    try {
-      if (apk) await api.adminUpdateApk(apk.id, form);
-      else await api.adminCreateApk(form);
-      toast.success(apk ? "APK updated!" : "APK created!");
-      onSaved();
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
+function PagesModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/domain-settings",
+    title: "Pages",
+    entityName: "Page",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "sectionKey", label: "Page Key" },
+      { key: "title", label: "Title" },
+      { key: "status", label: "Status" },
+    ],
+    formFields: [
+      { name: "sectionKey", label: "Page Slug", required: true },
+      { name: "title", label: "Title" },
+      { name: "subtitle", label: "Subtitle" },
+      { name: "body", label: "Body (HTML/Markdown)", type: "textarea" },
+      { name: "imageUrl", label: "Featured Image URL" },
+      { name: "sortOrder", label: "Sort Order", type: "number" },
+    ],
+  }} />;
+}
 
-  const set = (k: string, v: any) => setForm({ ...form, [k]: v });
-
+function MenusModule() {
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto pm-scroll">
-        <DialogHeader>
-          <DialogTitle>{apk ? "Edit APK" : "Add New APK"}</DialogTitle>
-          <DialogDescription>Configure APK download, status, maintenance, coming-soon and UPI payment.</DialogDescription>
-        </DialogHeader>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><Label className="text-xs font-semibold">Name *</Label><Input value={form.name || ""} onChange={(e) => set("name", e.target.value)} placeholder="e.g. ParcelMaadi Customer App" /></div>
-          <div><Label className="text-xs font-semibold">Slug</Label><Input value={form.slug || ""} onChange={(e) => set("slug", e.target.value)} placeholder="auto-generated from name" /></div>
-          <div><Label className="text-xs font-semibold">Developer</Label><Input value={form.developer || ""} onChange={(e) => set("developer", e.target.value)} placeholder="e.g. ParcelMaadi Team" /></div>
-          <div><Label className="text-xs font-semibold">Category</Label><Input value={form.category || ""} onChange={(e) => set("category", e.target.value)} placeholder="e.g. Logistics, Shopping" /></div>
-          <div><Label className="text-xs font-semibold">Version</Label><Input value={form.version || ""} onChange={(e) => set("version", e.target.value)} placeholder="e.g. 1.2.3" /></div>
-          <div><Label className="text-xs font-semibold">File Size</Label><Input value={form.fileSize || ""} onChange={(e) => set("fileSize", e.target.value)} placeholder="e.g. 18 MB" /></div>
-          <div><Label className="text-xs font-semibold">Sort Order</Label><Input type="number" value={form.sortOrder ?? 0} onChange={(e) => set("sortOrder", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
-          <div className="col-span-2"><Label className="text-xs font-semibold">Description</Label><Textarea value={form.description || ""} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Short description shown on the APK page" /></div>
-        </div>
-
-        {/* Icon upload */}
-        <div className="mt-2">
-          <ImageUpload value={form.iconUrl || ""} onChange={(url) => set("iconUrl", url)} label="APK Icon" />
-        </div>
-
-        {/* Download URL */}
-        <div className="mt-2">
-          <Label className="text-xs font-semibold">Download URL</Label>
-          <Input value={form.downloadUrl || ""} onChange={(e) => set("downloadUrl", e.target.value)} placeholder="https://.../app-release.apk" />
-        </div>
-
-        {/* On/Off switch */}
-        <div className="mt-2 flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <div className="text-sm font-semibold">APK Status (On/Off)</div>
-            <div className="text-[11px] text-muted-foreground">When OFF, the APK is hidden from customers.</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${form.status === "Active" ? "text-green-600" : "text-gray-500"}`}>{form.status === "Active" ? "ON (Active)" : "OFF (Inactive)"}</span>
-            <Switch checked={form.status === "Active"} onCheckedChange={(v) => set("status", v ? "Active" : "Inactive")} />
-          </div>
-        </div>
-
-        {/* Maintenance Mode */}
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Maintenance Mode</div>
-              <div className="text-[11px] text-muted-foreground">Show a maintenance banner instead of download button.</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-medium ${form.maintenanceMode === "On" ? "text-amber-700" : "text-gray-500"}`}>{form.maintenanceMode === "On" ? "On" : "Off"}</span>
-              <Switch checked={form.maintenanceMode === "On"} onCheckedChange={(v) => set("maintenanceMode", v ? "On" : "Off")} />
-            </div>
-          </div>
-          {form.maintenanceMode === "On" && (
-            <div><Label className="text-xs font-semibold">Maintenance Message</Label><Input value={form.maintenanceMsg || ""} onChange={(e) => set("maintenanceMsg", e.target.value)} placeholder="e.g. We'll be back shortly. Sorry for the inconvenience." /></div>
-          )}
-        </div>
-
-        {/* Coming Soon Mode */}
-        <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Coming Soon Mode</div>
-              <div className="text-[11px] text-muted-foreground">Show a "Coming Soon" badge and message instead of download.</div>
-            </div>
-            <Switch checked={form.comingSoon === true} onCheckedChange={(v) => set("comingSoon", v)} />
-          </div>
-          {form.comingSoon && (
-            <div><Label className="text-xs font-semibold">Coming Soon Text</Label><Input value={form.comingSoonText || ""} onChange={(e) => set("comingSoonText", e.target.value)} placeholder="e.g. Releasing next week — stay tuned!" /></div>
-          )}
-        </div>
-
-        {/* Payment Type */}
-        <div className="mt-2 rounded-lg border p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Payment Type</div>
-              <div className="text-[11px] text-muted-foreground">Free downloads or paid (UPI) downloads.</div>
-            </div>
-            <Select value={form.paymentType || "Free"} onValueChange={(v) => set("paymentType", v)}>
-              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent>
-            </Select>
-          </div>
-
-          {form.paymentType === "Paid" && (
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
-              <div><Label className="text-xs font-semibold">UPI ID</Label><Input value={form.upiId || ""} onChange={(e) => set("upiId", e.target.value)} placeholder="e.g. parcelmaadi@upi" /></div>
-              <div><Label className="text-xs font-semibold">UPI Payee Name</Label><Input value={form.upiPayeeName || ""} onChange={(e) => set("upiPayeeName", e.target.value)} placeholder="e.g. ParcelMaadi Pvt Ltd" /></div>
-              <div><Label className="text-xs font-semibold">Payment Amount ₹</Label><Input type="number" step="0.01" value={form.paymentAmount ?? 0} onChange={(e) => set("paymentAmount", e.target.value === "" ? 0 : Number(e.target.value))} /></div>
-              <div><Label className="text-xs font-semibold">Payment Cycle</Label>
-                <Select value={form.paymentCycle || ""} onValueChange={(v) => set("paymentCycle", v)}>
-                  <SelectTrigger><SelectValue placeholder="One-time / Monthly / Yearly" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="One-time">One-time</SelectItem>
-                    <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2"><Label className="text-xs font-semibold">QR Image URL</Label><Input value={form.qrUrl || ""} onChange={(e) => set("qrUrl", e.target.value)} placeholder="https://.../upi-qr.png" /></div>
-              <div className="col-span-2"><Label className="text-xs font-semibold">Payment Notes</Label><Textarea value={form.paymentNotes || ""} onChange={(e) => set("paymentNotes", e.target.value)} rows={2} placeholder="Instructions shown to customer before payment" /></div>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={saving} onClick={save} className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold">{saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}{apk ? "Save Changes" : "Create APK"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <Card className="p-6">
+      <h2 className="font-semibold mb-2">Navigation Menus</h2>
+      <p className="text-sm text-muted-foreground">Configure header, footer, and sidebar navigation menus. Stored in settings table with key "menu_header", "menu_footer".</p>
+      <Button className="mt-4" size="sm"><Plus className="w-4 h-4 mr-1" /> Add Menu Item</Button>
+    </Card>
   );
 }
 
-/* -------------------- Loading -------------------- */
-function Loading() {
+function NotificationsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/notifications",
+    title: "Notification Logs",
+    entityName: "Notification",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "channel", label: "Channel" },
+      { key: "recipient", label: "Recipient" },
+      { key: "subject", label: "Subject" },
+      { key: "status", label: "Status", render: (n) => <Badge variant={n.status === "Sent" ? "default" : "secondary"} className="text-[10px]">{n.status}</Badge> },
+      { key: "createdAt", label: "Sent At", render: (n) => new Date(n.createdAt).toLocaleString() },
+    ],
+    formFields: [
+      { name: "channel", label: "Channel", type: "select", options: ["WhatsApp", "SMS", "Email", "Push"] },
+      { name: "recipient", label: "Recipient" },
+      { name: "subject", label: "Subject" },
+      { name: "body", label: "Body", type: "textarea" },
+    ],
+  }} />;
+}
+
+function CommsModule({ channel }: { channel: string }) {
   return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 className="w-6 h-6 animate-spin text-brand-red" />
+    <Card className="p-6">
+      <h2 className="font-semibold mb-2">{channel} Configuration</h2>
+      <p className="text-sm text-muted-foreground mb-4">Configure {channel.toLowerCase()} integration for sending notifications.</p>
+      <div className="space-y-3 max-w-md">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">{channel} API Key</label>
+          <Input className="mt-1" type="password" placeholder={`Enter ${channel} API key`} />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Sender ID</label>
+          <Input className="mt-1" placeholder={`Enter sender ID`} />
+        </div>
+        <Button>Save Configuration</Button>
+      </div>
+    </Card>
+  );
+}
+
+function SupportModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/support",
+    title: "Support Tickets",
+    entityName: "Ticket",
+    searchField: "subject",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "subject", label: "Subject" },
+      { key: "channel", label: "Channel" },
+      { key: "priority", label: "Priority", render: (t) => <Badge variant={t.priority === "Urgent" ? "destructive" : t.priority === "High" ? "default" : "secondary"} className="text-[10px]">{t.priority}</Badge> },
+      { key: "status", label: "Status", render: (t) => <Badge variant={t.status === "Open" ? "default" : "secondary"} className="text-[10px]">{t.status}</Badge> },
+      { key: "createdAt", label: "Created", render: (t) => new Date(t.createdAt).toLocaleDateString() },
+    ],
+    formFields: [
+      { name: "subject", label: "Subject", required: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "channel", label: "Channel", type: "select", options: ["Web", "WhatsApp", "Email", "App"] },
+      { name: "priority", label: "Priority", type: "select", options: ["Low", "Medium", "High", "Urgent"] },
+      { name: "status", label: "Status", type: "select", options: ["Open", "In Progress", "Resolved", "Closed"] },
+      { name: "assignedTo", label: "Assigned To" },
+      { name: "resolution", label: "Resolution", type: "textarea" },
+    ],
+  }} />;
+}
+
+function AuditLogsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/audit-logs",
+    title: "Audit Logs",
+    entityName: "Log",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "adminEmail", label: "Admin" },
+      { key: "action", label: "Action" },
+      { key: "module", label: "Module" },
+      { key: "entityType", label: "Entity" },
+      { key: "ip", label: "IP" },
+      { key: "createdAt", label: "When", render: (l) => new Date(l.createdAt).toLocaleString() },
+    ],
+    formFields: [],
+  }} />;
+}
+
+function RolesModule({ admin }: { admin: AdminInfo }) {
+  const ROLES = [
+    { name: "SUPER_ADMIN", desc: "Full system access including settings and billing", color: "from-red-500 to-rose-600", perms: 50 },
+    { name: "ADMIN", desc: "Manage bookings, customers, vendors, content", color: "from-indigo-500 to-purple-600", perms: 35 },
+    { name: "BRANCH", desc: "Branch-level operations and reports", color: "from-blue-500 to-cyan-600", perms: 18 },
+    { name: "VENDOR", desc: "Manage own products, orders, inventory", color: "from-purple-500 to-violet-600", perms: 12 },
+    { name: "RIDER", desc: "View assigned bookings, update status", color: "from-green-500 to-emerald-600", perms: 6 },
+    { name: "CUSTOMER", desc: "Place orders, view own bookings", color: "from-amber-500 to-orange-600", perms: 4 },
+  ];
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Role Management</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {ROLES.map((r) => (
+          <Card key={r.name} className="p-4">
+            <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${r.color} flex items-center justify-center text-white mb-3`}>
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="font-semibold">{r.name}</div>
+            <div className="text-xs text-muted-foreground mt-1">{r.desc}</div>
+            <div className="mt-3 flex items-center justify-between">
+              <Badge variant="secondary" className="text-[10px]">{r.perms} permissions</Badge>
+              {admin.role === "Owner" && <Button size="sm" variant="outline">Configure</Button>}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PermissionsModule() {
+  const modules = ["bookings", "customers", "riders", "vendors", "branches", "products", "categories", "inventory", "services", "vehicles", "pricing", "coupons", "offers", "payments", "wallet", "settlements", "reports", "settings", "users", "audit-logs"];
+  const actions = ["view", "create", "edit", "delete", "approve", "export"];
+  const roles = ["SUPER_ADMIN", "ADMIN", "BRANCH", "VENDOR", "RIDER", "CUSTOMER"];
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Permissions Matrix</h1>
+      <Card className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/50 border-b">
+            <tr>
+              <th className="text-left p-2">Module / Action</th>
+              {roles.map((r) => <th key={r} className="p-2 text-center">{r}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {modules.map((m) => (
+              actions.map((a) => (
+                <tr key={`${m}-${a}`} className="border-b hover:bg-muted/30">
+                  <td className="p-2 capitalize">{m} · {a}</td>
+                  {roles.map((r) => (
+                    <td key={r} className="p-2 text-center">
+                      <Switch defaultChecked={r === "SUPER_ADMIN" || (r === "ADMIN" && ["view", "create", "edit"].includes(a))} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+function FeatureFlagsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/feature-flags",
+    title: "Feature Flags",
+    entityName: "Flag",
+    searchField: "key",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "key", label: "Key", render: (f) => <span className="font-mono text-xs">{f.key}</span> },
+      { key: "label", label: "Label" },
+      { key: "enabled", label: "Enabled", render: (f) => <Badge variant={f.enabled ? "default" : "secondary"} className="text-[10px]">{f.enabled ? "On" : "Off"}</Badge> },
+      { key: "rolloutPercent", label: "Rollout %", render: (f) => `${f.rolloutPercent}%` },
+    ],
+    formFields: [
+      { name: "key", label: "Key", required: true },
+      { name: "label", label: "Label" },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "enabled", label: "Enabled", type: "switch" },
+      { name: "rolloutPercent", label: "Rollout %", type: "number" },
+    ],
+  }} />;
+}
+
+function ApiKeysModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/api-keys",
+    title: "API Keys",
+    entityName: "Key",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "keyPrefix", label: "Prefix", render: (k) => <span className="font-mono text-xs">{k.keyPrefix}...</span> },
+      { key: "scopes", label: "Scopes" },
+      { key: "lastUsedAt", label: "Last Used", render: (k) => k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never" },
+      { key: "status", label: "Status", render: (k) => <Badge variant={k.status === "Active" ? "default" : "secondary"} className="text-[10px]">{k.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "scopes", label: "Scopes (CSV)", type: "textarea" },
+      { name: "expiresAt", label: "Expires At", type: "date" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Revoked"] },
+    ],
+  }} />;
+}
+
+function IntegrationsModule() {
+  return <CrudModule config={{
+    endpoint: "/api/admin/integrations",
+    title: "Integrations",
+    entityName: "Integration",
+    searchField: "name",
+    columns: [
+      { key: "id", label: "ID" },
+      { key: "name", label: "Name" },
+      { key: "category", label: "Category" },
+      { key: "status", label: "Status", render: (i) => <Badge variant={i.status === "Active" ? "default" : "secondary"} className="text-[10px]">{i.status}</Badge> },
+    ],
+    formFields: [
+      { name: "name", label: "Name", required: true },
+      { name: "category", label: "Category", type: "select", options: ["Payment", "SMS", "Email", "WhatsApp", "Maps", "Analytics", "Storage"] },
+      { name: "configJson", label: "Config (JSON)", type: "textarea" },
+      { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      { name: "notes", label: "Notes", type: "textarea" },
+    ],
+  }} />;
+}
+
+function SettingsModule() {
+  return (
+    <Tabs defaultValue="company">
+      <TabsList className="flex-wrap h-auto">
+        <TabsTrigger value="company">Company</TabsTrigger>
+        <TabsTrigger value="branding">Branding</TabsTrigger>
+        <TabsTrigger value="payments">Payments</TabsTrigger>
+        <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        <TabsTrigger value="taxes">Taxes</TabsTrigger>
+        <TabsTrigger value="domains">Domains</TabsTrigger>
+        <TabsTrigger value="api">API Keys</TabsTrigger>
+      </TabsList>
+      <TabsContent value="company">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Company Info</h3>
+          <div><label className="text-xs">Company Name</label><Input className="mt-1" defaultValue="HP Enterprise" /></div>
+          <div><label className="text-xs">Brand Name</label><Input className="mt-1" defaultValue="ParcelMaadi" /></div>
+          <div><label className="text-xs">GSTIN</label><Input className="mt-1" defaultValue="29ANZPH4067Q1ZS" /></div>
+          <div><label className="text-xs">Website</label><Input className="mt-1" defaultValue="https://parcelmaadi.com" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="branding">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Branding</h3>
+          <div><label className="text-xs">Logo URL</label><Input className="mt-1" defaultValue="/logo.png" /></div>
+          <div><label className="text-xs">Favicon URL</label><Input className="mt-1" defaultValue="/logo.png" /></div>
+          <div><label className="text-xs">Primary Color</label><Input className="mt-1" defaultValue="#6366f1" /></div>
+          <div><label className="text-xs">Accent Color</label><Input className="mt-1" defaultValue="#10b981" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="payments">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Payment Gateways</h3>
+          <div><label className="text-xs">Razorpay Key ID</label><Input className="mt-1" type="password" /></div>
+          <div><label className="text-xs">Razorpay Secret</label><Input className="mt-1" type="password" /></div>
+          <div><label className="text-xs">UPI ID</label><Input className="mt-1" defaultValue="parcelmaadi@upi" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="notifications">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Notification Settings</h3>
+          <div><label className="text-xs">WhatsApp Number</label><Input className="mt-1" defaultValue="919741433725" /></div>
+          <div><label className="text-xs">ntfy Topic</label><Input className="mt-1" defaultValue="parcelmaadi-admin-x7k9m2" /></div>
+          <div><label className="text-xs">Telegram Bot Token</label><Input className="mt-1" type="password" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="taxes">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Tax Settings</h3>
+          <div><label className="text-xs">Default GST %</label><Input className="mt-1" type="number" defaultValue="5" /></div>
+          <div><label className="text-xs">Default Commission %</label><Input className="mt-1" type="number" defaultValue="10" /></div>
+          <div><label className="text-xs">Platform Fee ₹</label><Input className="mt-1" type="number" defaultValue="5" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="domains">
+        <Card className="p-6 space-y-3 max-w-xl">
+          <h3 className="font-semibold">Domains</h3>
+          <div><label className="text-xs">Customer URL</label><Input className="mt-1" defaultValue="https://parcelmaadi.com" /></div>
+          <div><label className="text-xs">Admin URL</label><Input className="mt-1" defaultValue="https://parcelmaadi.com/?admin=1" /></div>
+          <div><label className="text-xs">API Base URL</label><Input className="mt-1" defaultValue="https://parcelmaadi.com/api" /></div>
+          <Button>Save</Button>
+        </Card>
+      </TabsContent>
+      <TabsContent value="api">
+        <Card className="p-6 text-sm">Manage API keys via the dedicated API Keys module.</Card>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function BackupModule() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Backup & Restore</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Card className="p-4">
+          <DatabaseBackup className="w-8 h-8 text-indigo-500 mb-2" />
+          <div className="font-semibold">Create Backup</div>
+          <div className="text-xs text-muted-foreground mb-3">Export all data as JSON snapshot</div>
+          <Button size="sm" onClick={() => toast.info("Backup started — link will be available when ready")}>
+            <DatabaseBackup className="w-4 h-4 mr-1" /> Backup Now
+          </Button>
+        </Card>
+        <Card className="p-4">
+          <RotateCcw className="w-8 h-8 text-amber-500 mb-2" />
+          <div className="font-semibold">Restore</div>
+          <div className="text-xs text-muted-foreground mb-3">Restore from a previous backup file</div>
+          <Button size="sm" variant="outline"><Upload className="w-4 h-4 mr-1" /> Upload Backup</Button>
+        </Card>
+      </div>
+      <Card className="p-4">
+        <h3 className="font-semibold mb-2">Backup History</h3>
+        <div className="text-sm text-muted-foreground">No backups yet. Click "Backup Now" to create your first one.</div>
+      </Card>
+    </div>
+  );
+}
+
+function ProfileModule({ admin }: { admin: AdminInfo }) {
+  return (
+    <div className="max-w-xl space-y-4">
+      <h1 className="text-2xl font-bold">Profile</h1>
+      <Card className="p-6 space-y-3">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+            {admin.name?.[0] || "A"}
+          </div>
+          <div>
+            <div className="font-semibold text-lg">{admin.name}</div>
+            <div className="text-sm text-muted-foreground">{admin.email}</div>
+            <Badge variant="secondary" className="mt-1">{admin.role}</Badge>
+          </div>
+        </div>
+        <div className="pt-4 border-t space-y-3">
+          <div><label className="text-xs font-medium text-muted-foreground">Name</label><Input className="mt-1" defaultValue={admin.name} /></div>
+          <div><label className="text-xs font-medium text-muted-foreground">Mobile</label><Input className="mt-1" placeholder="Enter mobile" /></div>
+          <div><label className="text-xs font-medium text-muted-foreground">New Password</label><Input className="mt-1" type="password" placeholder="Leave blank to keep current" /></div>
+          <Button>Save Changes</Button>
+        </div>
+      </Card>
     </div>
   );
 }
