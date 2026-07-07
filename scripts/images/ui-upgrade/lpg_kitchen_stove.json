@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "lpg gas stove kitchen cooking",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b1c34ecda2d1.jpg",
+      "caption": "",
+      "source": "Alibaba.com",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

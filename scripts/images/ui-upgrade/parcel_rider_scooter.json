@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "delivery rider scooter parcel box city",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/4acb09e28d7c.jpg",
+      "caption": "",
+      "source": "ny times",
+      "original_width": "735px",
+      "original_height": "1103px"
+    }
+  ]
+}

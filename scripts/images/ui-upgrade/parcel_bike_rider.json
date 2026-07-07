@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "bike delivery rider city traffic",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/df2a1054c6ad.jpg",
+      "caption": "",
+      "source": "amNewYork",
+      "original_width": "1200px",
+      "original_height": "800px"
+    }
+  ]
+}

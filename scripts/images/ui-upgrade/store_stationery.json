@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "stationery office supplies shop",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/8e3eb4e72bf9.jpg",
+      "caption": "",
+      "source": "M N House Wholesale",
+      "original_width": "1920px",
+      "original_height": "1080px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "fashion clothing boutique storefront",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/3126b3724084.jpg",
+      "caption": "",
+      "source": "www.ccfamct.us",
+      "original_width": "1200px",
+      "original_height": "800px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "vegetable market fresh produce india",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b7598133e841.jpg",
+      "caption": "",
+      "source": "LinkedIn",
+      "original_width": "1279px",
+      "original_height": "720px"
+    }
+  ]
+}

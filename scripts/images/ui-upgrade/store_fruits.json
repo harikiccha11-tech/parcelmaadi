@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "fruits vegetable shop fresh",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/fe5adee6f7fc.jpg",
+      "caption": "",
+      "source": "Donracks",
+      "original_width": "2560px",
+      "original_height": "1816px"
+    }
+  ]
+}

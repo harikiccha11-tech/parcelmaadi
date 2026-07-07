@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "water tanker truck arriving street",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/6546a64ebeb1.jpg",
+      "caption": "",
+      "source": "The Hindu",
+      "original_width": "1200px",
+      "original_height": "734px"
+    }
+  ]
+}

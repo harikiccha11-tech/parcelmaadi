@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "restaurant south indian food counter",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/28ef2c2dc4a8.jpg",
+      "caption": "",
+      "source": "www.saravanaabhavan.com.au",
+      "original_width": "1080px",
+      "original_height": "1424px"
+    }
+  ]
+}

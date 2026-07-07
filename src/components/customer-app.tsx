@@ -4,6 +4,7 @@ import { api, type PublicData, type Service, type Vehicle, type PriceMaster, typ
 import { ServiceIcon } from "@/components/service-icon";
 import { MapPicker, type MapPickerValue } from "@/components/map-picker";
 import { MotionBackground } from "@/components/motion-background";
+import { motion, AnimatePresence } from "framer-motion";
 import { ServiceVideoBackground } from "@/components/service-video-background";
 import { useCart } from "@/lib/cart";
 import { CartDrawer } from "@/components/cart-drawer";
@@ -856,33 +857,69 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
         <style>{`@keyframes pm-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} } .pm-ticker{animation:pm-ticker 25s linear infinite;display:inline-block}`}</style>
       </div>
 
-      {/* ─── Hero section — clean, image visible ─── */}
-      <section className="relative overflow-hidden min-h-[50vh] md:min-h-[60vh] flex items-center bg-brand-black">
-        {/* Background image — clearly visible */}
+      {/* ─── Hero section — premium with video background ─── */}
+      <section className="relative overflow-hidden min-h-[55vh] md:min-h-[65vh] flex items-center bg-brand-black">
+        {/* Background — video for water-supply service, image fallback for others */}
         <div className="absolute inset-0">
-          <img src={services[0]?.imageUrl || "/logo.png"} alt="ParcelMaadi delivery" className="w-full h-full object-cover opacity-60" loading="lazy" />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-black via-brand-black/80 to-transparent" />
+          {services.find((s: Service) => s.slug === "water-supply")?.imageUrl ? (
+            <>
+              {/* Use service image as background with subtle zoom animation */}
+              <img
+                src={services.find((s: Service) => s.slug === "water-supply")?.imageUrl || services[0]?.imageUrl || "/logo.png"}
+                alt="ParcelMaadi delivery"
+                className="w-full h-full object-cover opacity-70 animate-[slow-zoom_20s_ease-in-out_infinite_alternate]"
+                loading="eager"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-brand-black via-brand-black/85 to-brand-black/40" />
+              <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent" />
+            </>
+          ) : (
+            <>
+              <img src={services[0]?.imageUrl || "/logo.png"} alt="ParcelMaadi delivery" className="w-full h-full object-cover opacity-60" loading="eager" />
+              <div className="absolute inset-0 bg-gradient-to-r from-brand-black via-brand-black/80 to-transparent" />
+            </>
+          )}
         </div>
+        {/* Animated decorative elements */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-brand-yellow/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "4s" }} />
+        <div className="absolute bottom-10 left-10 w-40 h-40 bg-brand-red/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "5s", animationDelay: "1s" }} />
         {/* Content */}
-        <div className="relative mx-auto max-w-6xl px-4 py-10 md:py-16 text-white w-full z-10">
-          <div className="max-w-xl space-y-4">
+        <div className="relative mx-auto max-w-6xl px-4 py-12 md:py-20 text-white w-full z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="max-w-xl space-y-4"
+          >
             <div className="inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" /> LIVE — Now Booking Across Karnataka
             </div>
-            <h1 className="text-3xl md:text-5xl font-extrabold leading-tight drop-shadow-lg">
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow-2xl">
               {hero.title || "Fast Local Reliable Parcel & Goods Delivery"}
             </h1>
-            <p className="text-sm md:text-base text-white/90 max-w-md">{hero.subtitle} — {hero.body}</p>
+            <p className="text-sm md:text-base lg:text-lg text-white/90 max-w-md drop-shadow-lg">{hero.subtitle} — {hero.body}</p>
             <div className="flex flex-wrap gap-3 pt-2">
-              <a href="#services"><Button size="lg" className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-12 px-8 shadow-xl">
-                Book Now <ArrowRight className="w-5 h-5 ml-1" />
-              </Button></a>
-              <a href={`tel:${settings.contact_1}`}><Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-brand-black bg-transparent h-12 px-8">
-                <Phone className="w-5 h-5 mr-2" /> Call to Book
-              </Button></a>
+              <a href="#services"><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="lg" className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-12 px-8 shadow-xl text-base">
+                  Book Now <ArrowRight className="w-5 h-5 ml-1" />
+                </Button>
+              </motion.div></a>
+              <a href={`tel:${settings.contact_1}`}><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-brand-black bg-transparent h-12 px-8 text-base">
+                  <Phone className="w-5 h-5 mr-2" /> Call to Book
+                </Button>
+              </motion.div></a>
             </div>
-          </div>
+            {/* Trust badges */}
+            <div className="flex flex-wrap gap-4 pt-4 text-xs text-white/80">
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 11 Services</span>
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 16 Verified Vendors</span>
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 150+ Products</span>
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> Live Tracking</span>
+            </div>
+          </motion.div>
         </div>
+        <style>{`@keyframes slow-zoom { 0%{transform:scale(1)} 100%{transform:scale(1.1)} }`}</style>
       </section>
 
       {/* ─── Announcement bar ─── */}
@@ -984,24 +1021,33 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
           <p className="text-muted-foreground mt-2 text-sm">{services.length} services. One app. Book in 2 minutes.</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          {services.map((svc: Service) => {
+          {services.map((svc: Service, idx: number) => {
             const isComingSoon = svc.status === "Coming Soon";
             return (
-            <button key={svc.id} onClick={() => {
+            <motion.button
+              key={svc.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
+              whileHover={{ y: -6, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
               if (isComingSoon) {
                 toast.info(`🚀 ${svc.name} is Coming Soon! Stay tuned.`);
                 return;
               }
               onSelectService(svc);
             }}
-              className="group text-left rounded-2xl border-2 border-border bg-card overflow-hidden hover:border-brand-yellow hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              className="group text-left rounded-2xl border-2 border-border bg-card overflow-hidden hover:border-brand-yellow hover:shadow-2xl transition-all duration-300">
               {/* Image */}
               <div className="aspect-[4/3] relative overflow-hidden bg-muted">
                 {svc.imageUrl ? (
-                  <img src={svc.imageUrl} alt={svc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" style={{ filter: isComingSoon ? "blur(2px) grayscale(0.5) brightness(0.7)" : "none" }} />
+                  <img src={svc.imageUrl} alt={svc.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" loading="lazy" style={{ filter: isComingSoon ? "blur(2px) grayscale(0.5) brightness(0.7)" : "none" }} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><ServiceIcon name={svc.icon} className="w-12 h-12 text-brand-black/40" /></div>
                 )}
+                {/* Gradient overlay for premium look */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
                 {/* Icon badge */}
                 <div className="absolute top-2 left-2 w-9 h-9 rounded-lg bg-brand-yellow flex items-center justify-center shadow-md group-hover:scale-110 transition-transform z-10">
                   <ServiceIcon name={svc.icon} className="w-5 h-5 text-brand-black" />
@@ -1029,7 +1075,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
                   {isComingSoon ? "🚀 Coming Soon" : <>Book now <ArrowRight className="w-3 h-3" /></>}
                 </div>
               </div>
-            </button>
+            </motion.button>
             );
           })}
         </div>
@@ -2152,23 +2198,36 @@ function ShopProductsView({ service, shopId, onBack, onCheckout }: any) {
             <>
               <div className="text-xs text-muted-foreground">{filtered.length} product{filtered.length !== 1 ? "s" : ""}</div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filtered.map((p) => {
+                {filtered.map((p, idx: number) => {
                   const discount = p.mrp && p.mrp > p.sellingPrice ? Math.round(((p.mrp - p.sellingPrice) / p.mrp) * 100) : 0;
                   return (
-                    <div key={p.id} className="rounded-2xl border-2 border-border overflow-hidden hover:border-brand-yellow hover:shadow-lg transition-all flex flex-col bg-card">
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.6) }}
+                      whileHover={{ y: -4 }}
+                      className="rounded-2xl border-2 border-border overflow-hidden hover:border-brand-yellow hover:shadow-xl transition-all flex flex-col bg-card"
+                    >
                       <div className="aspect-square bg-muted relative overflow-hidden">
                         {p.photoUrl ? (
-                          <img src={p.photoUrl} alt={p.productName} className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          <img src={p.photoUrl} alt={p.productName} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-brand-yellow/20"><Package className="w-8 h-8 text-brand-black/40" /></div>
                         )}
                         {discount > 0 && (
-                          <span className="absolute top-2 left-2 bg-brand-red text-white text-[10px] font-bold px-1.5 py-0.5 rounded">{discount}% OFF</span>
+                          <span className="absolute top-2 left-2 bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">{discount}% OFF</span>
+                        )}
+                        {p.stock <= 0 && (
+                          <span className="absolute top-2 right-2 bg-gray-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">OUT OF STOCK</span>
+                        )}
+                        {p.stock > 0 && p.stock < 10 && (
+                          <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">Only {p.stock} left</span>
                         )}
                       </div>
                       <div className="p-2.5 flex-1 flex flex-col">
                         <div className="font-semibold text-xs leading-tight line-clamp-2 min-h-[2rem]">{p.productName}</div>
-                        {p.brand && <div className="text-[10px] text-muted-foreground mt-0.5">{p.brand}</div>}
+                        {p.brand && <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{p.brand}</div>}
                         {p.packSize && <div className="text-[10px] text-muted-foreground">{p.packSize}</div>}
                         <div className="flex items-baseline gap-1.5 mt-1">
                           <span className="font-bold text-brand-red text-sm flex items-center"><IndianRupee className="w-3 h-3" />{p.sellingPrice}</span>
@@ -2193,7 +2252,7 @@ function ShopProductsView({ service, shopId, onBack, onCheckout }: any) {
                           {p.stock <= 0 ? "Out of Stock" : <><Plus className="w-3 h-3 mr-1" /> Add to Cart</>}
                         </Button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
