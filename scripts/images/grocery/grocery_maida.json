@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "maida refined flour 1kg pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/fdf43ef7a9bb.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1910px",
+      "original_height": "1000px"
+    }
+  ]
+}

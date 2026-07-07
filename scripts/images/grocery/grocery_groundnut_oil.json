@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "groundnut oil 1l bottle",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/883d8f6e4422.jpg",
+      "caption": "",
+      "source": "Two Brothers Organic Farms",
+      "original_width": "1200px",
+      "original_height": "1200px"
+    }
+  ]
+}

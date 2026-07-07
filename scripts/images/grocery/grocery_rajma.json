@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "rajma red kidney beans 500g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/73c18b187f49.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "800px",
+      "original_height": "1000px"
+    }
+  ]
+}

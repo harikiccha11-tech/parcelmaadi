@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "rava sooji semolina 1kg",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/1b25606cfd63.jpg",
+      "caption": "",
+      "source": "Amazon.ae",
+      "original_width": "2200px",
+      "original_height": "2200px"
+    }
+  ]
+}

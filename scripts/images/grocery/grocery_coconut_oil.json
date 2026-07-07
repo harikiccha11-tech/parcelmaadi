@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "coconut oil 500ml bottle",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/8c6aa01acb87.jpg",
+      "caption": "",
+      "source": "Kiran Coconut Oil",
+      "original_width": "2000px",
+      "original_height": "2500px"
+    }
+  ]
+}

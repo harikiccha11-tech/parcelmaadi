@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "wheel detergent soap bar",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/efd491590133.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "2500px",
+      "original_height": "2500px"
+    }
+  ]
+}

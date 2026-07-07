@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "surf excel detergent 1kg",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/d62e272147b1.jpg",
+      "caption": "",
+      "source": "Keells Super",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

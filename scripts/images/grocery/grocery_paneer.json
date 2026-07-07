@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "amul paneer 200g pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/bbe8350b37c5.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "809px",
+      "original_height": "1000px"
+    }
+  ]
+}

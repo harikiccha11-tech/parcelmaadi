@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "marie gold biscuits pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/d5fb7523f5de.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "894px",
+      "original_height": "890px"
+    }
+  ]
+}

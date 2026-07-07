@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "amul butter 100g pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/591f5f7a4d0d.jpg",
+      "caption": "",
+      "source": "Gharstuff",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

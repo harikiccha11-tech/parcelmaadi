@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "jaggery gur block 1kg",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/a9b9bea13a4a.png",
+      "caption": "",
+      "source": "Spice Village",
+      "original_width": "768px",
+      "original_height": "1024px"
+    }
+  ]
+}

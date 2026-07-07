@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "colgate toothpaste 200g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/a8b78ad26c72.jpg",
+      "caption": "",
+      "source": "Good Life Plus Healthcare",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

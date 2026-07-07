@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "coca cola 750ml bottle",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c07131949faa.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "2000px",
+      "original_height": "2000px"
+    }
+  ]
+}

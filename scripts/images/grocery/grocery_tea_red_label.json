@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "brooke bond red label tea 500g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/0cc41a4035a8.jpg",
+      "caption": "",
+      "source": "Grain Culture",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "real mixed fruit juice 1l",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b18a6467de06.jpg",
+      "caption": "",
+      "source": "ZeepoX",
+      "original_width": "900px",
+      "original_height": "900px"
+    }
+  ]
+}

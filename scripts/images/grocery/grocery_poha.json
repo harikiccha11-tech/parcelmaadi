@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "poha flattened rice 500g pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/5926b0e210ce.jpg",
+      "caption": "",
+      "source": "Health Fields Organic",
+      "original_width": "900px",
+      "original_height": "900px"
+    }
+  ]
+}

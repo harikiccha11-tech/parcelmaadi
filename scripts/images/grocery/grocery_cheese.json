@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "amul cheese slices 200g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b01173a45327.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "2560px",
+      "original_height": "2126px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "bisleri mineral water 1l",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/18a9497f4242.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1910px",
+      "original_height": "1000px"
+    }
+  ]
+}

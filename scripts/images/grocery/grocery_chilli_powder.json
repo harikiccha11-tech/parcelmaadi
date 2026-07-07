@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "red chilli powder 200g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b7b698afdd6b.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "823px",
+      "original_height": "1000px"
+    }
+  ]
+}

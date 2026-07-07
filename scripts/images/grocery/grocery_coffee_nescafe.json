@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "nescafe instant coffee 100g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/62fd64f2e120.jpg",
+      "caption": "",
+      "source": "Bansan Penang",
+      "original_width": "1080px",
+      "original_height": "981px"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "maggi noodles 4 pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/3b8fecb4e51d.jpg",
+      "caption": "",
+      "source": "Silkrute Singapore",
+      "original_width": "2000px",
+      "original_height": "2000px"
+    }
+  ]
+}

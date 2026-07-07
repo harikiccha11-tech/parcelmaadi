@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "besan gram flour 1kg pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/194c0c107a25.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "820px",
+      "original_height": "1000px"
+    }
+  ]
+}

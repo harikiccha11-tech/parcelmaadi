@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "parle g glucose biscuits pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/188469a29747.jpg",
+      "caption": "",
+      "source": "Vishal Mega Mart",
+      "original_width": "900px",
+      "original_height": "900px"
+    }
+  ]
+}

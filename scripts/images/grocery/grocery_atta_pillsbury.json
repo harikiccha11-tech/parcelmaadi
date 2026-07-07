@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "pillsbury atta 5kg bag",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/b39158051755.jpg",
+      "caption": "",
+      "source": "Shopee",
+      "original_width": "1024px",
+      "original_height": "1024px"
+    }
+  ]
+}

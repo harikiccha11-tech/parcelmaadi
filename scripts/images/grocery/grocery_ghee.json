@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "amul ghee 1l tin",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/f786bd739116.jpg",
+      "caption": "",
+      "source": "FairPrice",
+      "original_width": "1200px",
+      "original_height": "1200px"
+    }
+  ]
+}

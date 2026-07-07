@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "bru instant coffee 100g jar",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/062748525cdd.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "1100px",
+      "original_height": "1100px"
+    }
+  ]
+}

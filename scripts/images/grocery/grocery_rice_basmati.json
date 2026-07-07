@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "basmati rice 5kg bag pack",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/d5068bde78ec.jpg",
+      "caption": "",
+      "source": "Rawabi Hypermarket",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

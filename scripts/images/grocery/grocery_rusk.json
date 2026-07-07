@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "rusk toast bread 200g",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/6b69bd8db5df.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1857px",
+      "original_height": "2560px"
+    }
+  ]
+}

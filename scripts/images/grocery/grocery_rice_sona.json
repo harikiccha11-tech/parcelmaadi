@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "query": "sona masoori rice bag",
+  "count": 1,
+  "ranked": false,
+  "results": [
+    {
+      "original_url": "https://sfile.chatglm.cn/images-ppt/c1e3f25e0f8d.png",
+      "caption": "",
+      "source": "Vadilal Quick Treat",
+      "original_width": "1445px",
+      "original_height": "1858px"
+    }
+  ]
+}
