@@ -904,7 +904,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
                   Book Now <ArrowRight className="w-5 h-5 ml-1" />
                 </Button>
               </motion.div></a>
-              <a href={`tel:${settings.contact_1}`}><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <a href={`tel:${settings.contact_1 || "9741433725"}`}><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-brand-black bg-transparent h-12 px-8 text-base">
                   <Phone className="w-5 h-5 mr-2" /> Call to Book
                 </Button>
@@ -943,29 +943,31 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               <div className="inline-flex items-center gap-2 bg-brand-black text-brand-yellow px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-lg">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
                 <span className="w-2 h-2 bg-green-400 rounded-full -ml-3" />
-                EXPANDING ACROSS KARNATAKA
+                LIVE NOW · EXPANDING ACROSS KARNATAKA
               </div>
               <h2 className="text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg leading-tight">
-                🚀 We're Coming to Your City!
+                🚀 Now Serving 25+ Karnataka Cities
               </h2>
               <p className="text-base md:text-lg text-white/95 font-semibold mt-1 drop-shadow">
-                Launching <span className="bg-brand-black text-brand-yellow px-2 py-0.5 rounded-md mx-1">AUGUST</span> — Parcel, Goods, Water, Borewell, Machinery, Grocery & more
+                Book <span className="bg-brand-black text-brand-yellow px-2 py-0.5 rounded-md mx-1">Parcel, Goods, Water, Borewell, Machinery, Grocery</span> & more — live today, expanding to more cities every month
               </p>
               <p className="text-xs md:text-sm text-white/80 mt-1">
-                ನಮ್ಮ ನಗರಕ್ಕೆ ಬರುತ್ತಿದ್ದೇವೆ · ಆಗಸ್ಟ್‌ನಲ್ಲಿ · Fast · Local · Reliable
+                ಈಗಾಗಲೇ ಲೈವ್ · Fast · Local · Reliable
               </p>
             </div>
             <div className="flex flex-col gap-2 items-center md:items-end">
               <div className="bg-brand-black text-white rounded-2xl px-6 py-3 shadow-2xl border-2 border-brand-yellow">
-                <div className="text-[10px] uppercase tracking-widest text-brand-yellow font-bold">Launching In</div>
-                <div className="text-3xl md:text-4xl font-extrabold text-brand-yellow">AUG</div>
+                <div className="text-[10px] uppercase tracking-widest text-brand-yellow font-bold">Live In</div>
+                <div className="text-3xl md:text-4xl font-extrabold text-brand-yellow">NOW</div>
                 <div className="text-[10px] text-white/70 text-center">2026</div>
               </div>
-              <div className="flex gap-2">
-                <span className="bg-white/90 text-brand-red px-3 py-1 rounded-full text-xs font-bold shadow-md">Bengaluru</span>
-                <span className="bg-white/90 text-brand-red px-3 py-1 rounded-full text-xs font-bold shadow-md">Mysuru</span>
-                <span className="bg-white/90 text-brand-red px-3 py-1 rounded-full text-xs font-bold shadow-md">Hubballi</span>
-                <span className="bg-white/90 text-brand-red px-3 py-1 rounded-full text-xs font-bold shadow-md">+7 more</span>
+              <div className="flex flex-wrap gap-1.5 justify-end max-w-[280px]">
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Bengaluru</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Mysuru</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Hubballi</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Mangaluru</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Hosadurga</span>
+                <span className="bg-white/90 text-brand-red px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">+20 more</span>
               </div>
             </div>
           </div>
@@ -1018,8 +1020,27 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Choose Your Service</h2>
           <div className="h-1 brand-gradient rounded-full mt-2 mx-auto w-32" />
-          <p className="text-muted-foreground mt-2 text-sm">{services.length} services. One app. Book in 2 minutes.</p>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {services.length === 0 ? "Loading services..." : `${services.length} services. One app. Book in 2 minutes.`}
+          </p>
         </div>
+        {services.length === 0 ? (
+          /* Loading skeleton while services fetch in client-side effect */
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border-2 border-border bg-card overflow-hidden animate-pulse">
+                <div className="aspect-[4/3] bg-muted" />
+                <div className="bg-gradient-to-r from-brand-red/50 to-brand-yellow/50 px-3 py-2.5">
+                  <div className="h-4 bg-white/30 rounded w-3/4" />
+                </div>
+                <div className="p-2.5">
+                  <div className="h-3 bg-muted rounded w-full mb-1" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {services.map((svc: Service, idx: number) => {
             const isComingSoon = svc.status === "Coming Soon";
@@ -1079,6 +1100,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
             );
           })}
         </div>
+        )}
       </section>
 
       <section className="bg-brand-black text-white py-12">
@@ -1614,7 +1636,7 @@ function SuccessView({ booking, settings, waLink, onHome, onOrders }: any) {
           {booking.dropMapLink && <a href={booking.dropMapLink} target="_blank" className="block text-xs text-brand-red underline">View drop on map ↗</a>}
           <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <a href={waLink(waText)} target="_blank" className="flex-1"><Button className="w-full bg-green-600 hover:bg-green-700 text-white"><MessageCircle className="w-4 h-4 mr-2" /> Send on WhatsApp</Button></a>
-            <a href={`tel:${settings.contact_1}`} className="flex-1"><Button variant="outline" className="w-full border-brand-black"><Phone className="w-4 h-4 mr-2" /> Call Support</Button></a>
+            <a href={`tel:${settings.contact_1 || "9741433725"}`} className="flex-1"><Button variant="outline" className="w-full border-brand-black"><Phone className="w-4 h-4 mr-2" /> Call Support</Button></a>
           </div>
           <Button onClick={downloadReceipt} className="w-full bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-11">
             <Download className="w-4 h-4 mr-2" /> Download Order Details
@@ -2526,10 +2548,10 @@ function CustomerFooter({ settings, waLink, onPolicies, onOpenAdmin }: any) {
         <div>
           <h4 className="font-bold text-brand-yellow mb-2">Contact</h4>
           <ul className="text-sm space-y-1 text-white/80">
-            {settings.ceo_name && <li className="text-xs text-white/60">CEO: {settings.ceo_name} · <a href={`tel:${settings.ceo_mobile}`} className="hover:text-brand-yellow">{settings.ceo_mobile}</a></li>}
-            {settings.md_name && <li className="text-xs text-white/60">MD: {settings.md_name} · <a href={`tel:${settings.md_mobile}`} className="hover:text-brand-yellow">{settings.md_mobile}</a></li>}
-            <li><a href={`tel:${settings.contact_1}`} className="hover:text-brand-yellow inline-flex items-center gap-1"><Phone className="w-3 h-3" /> {settings.contact_1 || "9741433725"}</a></li>
-            <li><a href={`mailto:${settings.email}`} className="hover:text-brand-yellow">{settings.email || "parcelmaadipm@gmail.com"}</a></li>
+            {settings.ceo_name && <li className="text-xs text-white/60">CEO: {settings.ceo_name} · <a href={`tel:${settings.ceo_mobile || "9741433725"}`} className="hover:text-brand-yellow">{settings.ceo_mobile || "9741433725"}</a></li>}
+            {settings.md_name && <li className="text-xs text-white/60">MD: {settings.md_name} · <a href={`tel:${settings.md_mobile || "8073748271"}`} className="hover:text-brand-yellow">{settings.md_mobile || "8073748271"}</a></li>}
+            <li><a href={`tel:${settings.contact_1 || "9741433725"}`} className="hover:text-brand-yellow inline-flex items-center gap-1"><Phone className="w-3 h-3" /> {settings.contact_1 || "9741433725"}</a></li>
+            <li><a href={`mailto:${settings.email || "parcelmaadipm@gmail.com"}`} className="hover:text-brand-yellow">{settings.email || "parcelmaadipm@gmail.com"}</a></li>
             <li><a href={waLink("Hello ParcelMaadi!")} target="_blank" className="hover:text-brand-yellow inline-flex items-center gap-1"><MessageCircle className="w-3 h-3" /> WhatsApp</a></li>
           </ul>
         </div>
