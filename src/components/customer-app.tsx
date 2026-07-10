@@ -1111,7 +1111,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: Package, title: "1. Choose Service", desc: "Pick from 8 services and see vehicle price cards." },
+              { icon: Package, title: "1. Choose Service", desc: "Pick from 11 services and see vehicle price cards." },
               { icon: MapPin, title: "2. Set Pickup & Drop", desc: "Use the map picker to search or drag the pin. GPS optional." },
               { icon: CheckCircle2, title: "3. Confirm & Book", desc: "See transparent fare breakup with GST & charges, then book instantly." },
             ].map((s, i) => (
@@ -1161,7 +1161,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
             <h2 className="text-2xl md:text-3xl font-extrabold">{about.title || "About ParcelMaadi"}</h2>
             <p className="text-muted-foreground mt-3 whitespace-pre-line">{about.body}</p>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-brand-yellow/20 border border-brand-yellow p-3"><div className="text-2xl font-extrabold text-brand-red">8+</div><div className="text-xs text-muted-foreground">Services</div></div>
+              <div className="rounded-xl bg-brand-yellow/20 border border-brand-yellow p-3"><div className="text-2xl font-extrabold text-brand-red">11+</div><div className="text-xs text-muted-foreground">Services</div></div>
               <div className="rounded-xl bg-brand-yellow/20 border border-brand-yellow p-3"><div className="text-2xl font-extrabold text-brand-red">2 min</div><div className="text-xs text-muted-foreground">Booking time</div></div>
               <div className="rounded-xl bg-brand-yellow/20 border border-brand-yellow p-3"><div className="text-2xl font-extrabold text-brand-red">Live</div><div className="text-xs text-muted-foreground">Pricing</div></div>
               <div className="rounded-xl bg-brand-yellow/20 border border-brand-yellow p-3"><div className="text-2xl font-extrabold text-brand-red">24/7</div><div className="text-xs text-muted-foreground">Support</div></div>
