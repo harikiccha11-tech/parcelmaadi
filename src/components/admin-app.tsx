@@ -53,6 +53,7 @@ type Tab =
   | "settlements" | "reports" | "analytics" | "cms" | "media" | "banners" | "pages"
   | "menus" | "notifications" | "whatsapp" | "email" | "sms" | "support" | "audit-logs"
   | "staff" | "salary" | "attendance"
+  | "visitors"
   | "roles" | "permissions" | "feature-flags" | "api-keys" | "integrations" | "settings"
   | "backup" | "profile";
 
@@ -95,6 +96,7 @@ const NAV: NavItem[] = [
   { id: "email", label: "Email", icon: Mail, group: "Comms" },
   { id: "sms", label: "SMS", icon: Smartphone, group: "Comms" },
   { id: "support", label: "Support", icon: LifeBuoy, group: "Comms" },
+  { id: "visitors", label: "Visitor Tracker", icon: Users, group: "Insights" },
   { id: "staff", label: "Staff / Employees", icon: Users, group: "HR" },
   { id: "salary", label: "Salary & Payroll", icon: IndianRupee, group: "HR" },
   { id: "attendance", label: "Attendance", icon: CalendarClock, group: "HR" },
@@ -541,6 +543,7 @@ function ActualModule({ tab, admin }: { tab: Tab; admin: AdminInfo }) {
     case "staff": return <StaffModule />;
     case "salary": return <SalaryModule />;
     case "attendance": return <AttendanceModule />;
+    case "visitors": return <VisitorsModule />;
     case "audit-logs": return <AuditLogsModule />;
     case "roles": return <RolesModule admin={admin} />;
     case "permissions": return <PermissionsModule />;
@@ -3042,6 +3045,164 @@ function AttendanceModule() {
           </table>
         )}
       </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// VISITOR TRACKER — customer insights dashboard
+// ============================================================
+function VisitorsModule() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(7);
+  const [search, setSearch] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/admin/visitors?days=${days}&limit=200&q=${encodeURIComponent(search)}`);
+      const d = await r.json();
+      setData(d);
+    } catch {
+      toast.error("Failed to load visitors");
+    } finally {
+      setLoading(false);
+    }
+  }, [days, search]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const stats = data?.stats;
+  const items = data?.items || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">📍 Visitor Tracker</h1>
+          <p className="text-sm text-muted-foreground">Real-time customer insights — who's visiting your site</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="px-3 py-1.5 text-sm rounded-md border bg-background">
+            <option value={1}>Last 24 hours</option>
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+          <Button size="sm" variant="outline" onClick={load}><RefreshCw className="w-4 h-4" /></Button>
+        </div>
+      </div>
+
+      {/* Stats cards */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="p-4">
+            <Users className="w-6 h-6 text-indigo-500 mb-2" />
+            <div className="text-2xl font-bold">{stats.totalVisitors}</div>
+            <div className="text-xs text-muted-foreground">Total Visitors ({days}d)</div>
+          </Card>
+          <Card className="p-4">
+            <CalendarClock className="w-6 h-6 text-green-500 mb-2" />
+            <div className="text-2xl font-bold">{stats.todayVisitors}</div>
+            <div className="text-xs text-muted-foreground">Today's Visitors</div>
+          </Card>
+          <Card className="p-4">
+            <TrendingUp className="w-6 h-6 text-amber-500 mb-2" />
+            <div className="text-2xl font-bold">{stats.uniqueIPs}</div>
+            <div className="text-xs text-muted-foreground">Unique IPs</div>
+          </Card>
+          <Card className="p-4">
+            <Activity className="w-6 h-6 text-purple-500 mb-2" />
+            <div className="text-2xl font-bold">{stats.byDevice?.length || 0}</div>
+            <div className="text-xs text-muted-foreground">Device Types</div>
+          </Card>
+        </div>
+      )}
+
+      {/* Device + City breakdown */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3">📱 By Device</h3>
+            <div className="space-y-2">
+              {stats.byDevice?.map((d: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                  <span className="text-sm font-medium">{d.name}</span>
+                  <Badge variant="secondary" className="text-xs">{d.count}</Badge>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3">📍 Top Cities</h3>
+            <div className="space-y-2">
+              {stats.byCity?.slice(0, 8).map((c: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                  <span className="text-sm font-medium">{c.name}</span>
+                  <Badge variant="secondary" className="text-xs">{c.count}</Badge>
+                </div>
+              ))}
+              {(!stats.byCity || stats.byCity.length === 0) && (
+                <div className="text-sm text-muted-foreground text-center py-4">No city data yet</div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Search */}
+      <Card className="p-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search by IP, city, country, device..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+      </Card>
+
+      {/* Visitor table */}
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+            <div className="text-sm text-muted-foreground">No visitors logged yet</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="text-left p-2 text-xs uppercase">#</th>
+                  <th className="text-left p-2 text-xs uppercase">Date & Time</th>
+                  <th className="text-left p-2 text-xs uppercase">IP</th>
+                  <th className="text-left p-2 text-xs uppercase">Location</th>
+                  <th className="text-left p-2 text-xs uppercase">Device</th>
+                  <th className="text-left p-2 text-xs uppercase">Page</th>
+                  <th className="text-left p-2 text-xs uppercase">Local Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((v: any, i: number) => (
+                  <tr key={v.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2 text-xs text-muted-foreground">{i + 1}</td>
+                    <td className="p-2 text-xs">{new Date(v.createdAt).toLocaleString()}</td>
+                    <td className="p-2 font-mono text-xs">{v.ip}</td>
+                    <td className="p-2 text-xs">{v.city}, {v.country}</td>
+                    <td className="p-2"><Badge variant="outline" className="text-[10px]">{v.device}</Badge></td>
+                    <td className="p-2 text-xs truncate max-w-[200px]">{v.page}</td>
+                    <td className="p-2 text-xs">{v.localTime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
+        💡 <strong>How it works:</strong> Every visitor to parcelmaadi.com is automatically logged with their IP, city, country, device, and the page they visited. The live widget appears when you visit with <code className="bg-muted px-1 py-0.5 rounded">?admin=true</code> in the URL. Data is stored in your database — no third-party tracking service needed.
+      </div>
     </div>
   );
 }

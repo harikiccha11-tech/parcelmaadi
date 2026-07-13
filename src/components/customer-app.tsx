@@ -120,6 +120,75 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
     return () => clearInterval(interval);
   }, [userPincode]);
 
+  // === VISITOR TRACKING — logs every visitor (IP, location, device, page) ===
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Only track once per session
+    const sessionId = sessionStorage.getItem("pm_session_id") || `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    sessionStorage.setItem("pm_session_id", sessionId);
+    if (sessionStorage.getItem("pm_tracked") === "1") return;
+
+    // Detect device type
+    const ua = navigator.userAgent;
+    const device = /Mobile|Android|iP(hone|od)|IEMobile|BlackBerry/i.test(ua) ? "Mobile"
+      : /tablet|ipad|playbook|silk/i.test(ua) ? "Tablet" : "Desktop";
+
+    // Fetch visitor's IP + location from ip-api.com
+    fetch("https://ip-api.com/json/")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "success") {
+          const info = {
+            ip: data.query,
+            city: data.city,
+            region: data.regionName,
+            country: data.country,
+            timezone: data.timezone,
+            localTime: new Date().toLocaleString("en-IN", { timeZone: data.timezone }),
+            device,
+            page: window.location.href,
+            referrer: document.referrer || null,
+            sessionId,
+          };
+
+          // Save to server (silent — don't break customer site if it fails)
+          fetch("/api/visitor/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(info),
+          }).catch(() => {});
+
+          sessionStorage.setItem("pm_tracked", "1");
+
+          // Show live widget ONLY for admin (when ?admin=true in URL)
+          if (window.location.search.includes("admin=true") || localStorage.getItem("admin_view") === "true") {
+            const widget = document.createElement("div");
+            widget.style.cssText = "position:fixed;bottom:20px;right:20px;background:#0f172a;color:#f1f5f9;padding:16px 20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6);font-family:Arial,sans-serif;font-size:14px;z-index:999999;max-width:340px;border:1px solid #334155;";
+            widget.innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <strong style="color:#38bdf8;">📊 Live Visitor</strong>
+                <span style="background:#334155;padding:2px 12px;border-radius:20px;font-size:12px;">${device}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <div>📍 ${info.city}, ${info.region}, ${info.country}</div>
+                <div>🕒 ${info.localTime}</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">IP: ${info.ip}</div>
+              </div>
+              <div style="margin-top:10px;font-size:11px;color:#64748b;border-top:1px solid #1e293b;padding-top:6px;">🔒 Only visible to admin</div>
+            `;
+            const closeBtn = document.createElement("span");
+            closeBtn.innerHTML = "✕";
+            closeBtn.style.cssText = "position:absolute;top:6px;right:12px;cursor:pointer;color:#64748b;font-size:16px;";
+            closeBtn.onclick = () => { widget.style.display = "none"; localStorage.setItem("admin_view", "false"); };
+            widget.prepend(closeBtn);
+            document.body.appendChild(widget);
+            localStorage.setItem("admin_view", "true");
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const settings = publicData?.settings || {};
   const content = publicData?.content || {};
   const hero = content.hero || {};

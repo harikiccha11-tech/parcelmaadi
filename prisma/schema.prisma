@@ -812,3 +812,27 @@ model LeaveRequest {
   @@index([staffId])
   @@index([status])
 }
+
+// =====================================================
+// VISITOR TRACKING — customer insights
+// =====================================================
+
+model Visitor {
+  id          Int      @id @default(autoincrement())
+  ip          String?
+  city        String?
+  region      String?
+  country     String?
+  timezone    String?
+  device      String?
+  page        String?
+  userAgent   String?  @map("user_agent")
+  referrer    String?
+  localTime   String?  @map("local_time")
+  sessionId   String?  @map("session_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([ip])
+  @@index([city])
+}
