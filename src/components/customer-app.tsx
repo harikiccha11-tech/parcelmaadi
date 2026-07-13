@@ -219,7 +219,7 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
       // pickup+drop → vehicle cards
       setStep("location");
     } else if (svc.slug === "material-supply") {
-      // material: select material type → quantity → delivery location → shops by landed price
+      // material: show all material products (cement, sand, steel, bricks, etc.) with add-to-cart
       setStep("vehicles");
     } else if (svc.slug === "supplier-shop" || svc.slug === "food-delivery") {
       // Supplier/Shop + Food Delivery: shop/restaurant directory → select → that shop's products
@@ -552,8 +552,8 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
         )}
         {/* Material Supply: item-type selection → quantity → single location → shops */}
         {step === "vehicles" && selectedService?.slug === "material-supply" && (
-          <ItemTypeSelectView service={selectedService} title="Select Material" onBack={() => setStep("home")}
-            onSelect={async (v) => { setMaterialVehicle(v); setStep("material-quantity"); }} />
+          <MaterialProductsView service={selectedService} onBack={() => setStep("home")}
+            onCheckout={() => setStep("material-location")} />
         )}
         {/* Supplier/Shop: shop directory — select a shop type first */}
         {step === "shop-list" && (selectedService?.slug === "supplier-shop" || selectedService?.slug === "food-delivery") && (
@@ -2229,6 +2229,214 @@ function ShopListView({ service, onSelectShop, onBack }: any) {
               </div>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------- Material Products (brand-wise cards with cart) -------------------- */
+function MaterialProductsView({ service, onBack, onCheckout }: any) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [activeCat, setActiveCat] = useState<string>("All");
+  const cart = useCart();
+  const userPincode = typeof window !== "undefined" ? localStorage.getItem("pm_pincode") || undefined : undefined;
+
+  useEffect(() => {
+    api.getProducts(userPincode).then((d) => {
+      let all = d.products || [];
+      // Filter for material categories only
+      const MATERIAL_CATS = ["Cement", "Steel", "Sand", "Bricks", "Blocks", "Jelly", "Stone", "Soil"];
+      all = all.filter((p: any) => MATERIAL_CATS.includes(p.category));
+      setProducts(all);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [userPincode]);
+
+  // Build category list
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => { if (p.category) set.add(p.category); });
+    return ["All", ...Array.from(set).sort()];
+  }, [products]);
+
+  // Filter products by search + category
+  const filtered = products.filter((p) => {
+    const matchCat = activeCat === "All" || p.category === activeCat;
+    const q = search.toLowerCase();
+    const matchSearch = !search ||
+      (p.productName || "").toLowerCase().includes(q) ||
+      (p.brand || "").toLowerCase().includes(q) ||
+      (p.category || "").toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+
+  // Group by category for display
+  const grouped = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    filtered.forEach((p) => {
+      const cat = p.category || "Other";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(p);
+    });
+    return groups;
+  }, [filtered]);
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      {/* Back button */}
+      <Button variant="outline" size="lg" className="mb-4 h-12 text-base font-bold" onClick={onBack}>
+        <ChevronLeft className="w-5 h-5 mr-1" /> Back to Home
+      </Button>
+
+      {/* Header */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-extrabold flex items-center gap-2">
+          <Package className="w-6 h-6 text-brand-red" /> Material Supply — Brand-wise Pricing
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {filtered.length} products across {categories.length - 1} categories · Multiple brands per material · Best prices guaranteed
+        </p>
+      </div>
+
+      {/* Search + Category filter */}
+      <div className="mb-4 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search material, brand..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCat(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                activeCat === cat
+                  ? "bg-brand-red text-white shadow-md"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Loading */}
+      {loading ? (
+        <div className="text-center py-12"><Loader2 className="w-8 h-8 animate-spin mx-auto text-brand-yellow" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">No materials found. Try a different search.</div>
+      ) : (
+        /* Material cards grouped by category */
+        <div className="space-y-6">
+          {Object.entries(grouped).map(([cat, items]) => (
+            <div key={cat}>
+              <h3 className="text-lg font-bold mb-3 text-brand-black border-b-2 border-brand-yellow/30 pb-1">
+                {cat} <span className="text-sm font-normal text-muted-foreground">({items.length} items)</span>
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {items.map((p, idx: number) => {
+                  const discount = p.mrp && p.mrp > p.sellingPrice ? Math.round(((p.mrp - p.sellingPrice) / p.mrp) * 100) : 0;
+                  return (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.6) }}
+                      whileHover={{ y: -4 }}
+                      className="rounded-2xl border-2 border-border overflow-hidden hover:border-brand-yellow hover:shadow-xl transition-all flex flex-col bg-card"
+                    >
+                      {/* Image */}
+                      <div className="aspect-square bg-muted relative overflow-hidden">
+                        {p.photoUrl ? (
+                          <img src={p.photoUrl} alt={p.productName} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-brand-yellow/20"><Package className="w-8 h-8 text-brand-black/40" /></div>
+                        )}
+                        {discount > 0 && (
+                          <span className="absolute top-2 left-2 bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">{discount}% OFF</span>
+                        )}
+                        {p.stock <= 0 && (
+                          <span className="absolute top-2 right-2 bg-gray-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">OUT OF STOCK</span>
+                        )}
+                        {p.stock > 0 && p.stock < 10 && (
+                          <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">Only {p.stock} left</span>
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div className="p-2.5 flex-1 flex flex-col">
+                        <div className="font-semibold text-xs leading-tight line-clamp-2 min-h-[2rem]">{p.productName}</div>
+                        {p.brand && (
+                          <div className="mt-1">
+                            <span className="inline-block bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded-full">🏷️ {p.brand}</span>
+                          </div>
+                        )}
+                        {p.packSize && <div className="text-[10px] text-muted-foreground mt-1">{p.packSize}</div>}
+                        {/* Price */}
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="font-bold text-brand-red text-sm flex items-center"><IndianRupee className="w-3 h-3" />{p.sellingPrice.toLocaleString()}</span>
+                          {p.mrp && p.mrp > p.sellingPrice && <span className="text-[10px] text-muted-foreground line-through">₹{p.mrp.toLocaleString()}</span>}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">{p.packSize || "per unit"}</div>
+                        {/* Add to cart */}
+                        <Button
+                          size="sm"
+                          className="w-full mt-2 bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-8 text-xs"
+                          disabled={p.stock <= 0}
+                          onClick={() => {
+                            cart.addItem({
+                              id: `material-${p.id}`,
+                              name: p.productName,
+                              price: p.sellingPrice,
+                              image: p.photoUrl || undefined,
+                              unit: p.packSize || undefined,
+                              serviceSlug: "material-supply",
+                            });
+                            toast.success(`${p.productName} added to cart`);
+                          }}
+                        >
+                          {p.stock <= 0 ? "Out of Stock" : <><Plus className="w-3 h-3 mr-1" /> Add to Cart</>}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Sticky checkout bar */}
+      {cart.count > 0 && (
+        <div className="sticky bottom-0 left-0 right-0 bg-brand-black text-white p-4 shadow-2xl z-40 mt-6 rounded-t-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-bold">🛒 {cart.count} item{cart.count !== 1 ? "s" : ""} in cart</div>
+              <div className="text-lg font-extrabold text-brand-yellow">Total: ₹{cart.total.toLocaleString()}</div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="border-brand-yellow text-brand-yellow hover:bg-brand-yellow hover:text-brand-black bg-transparent" onClick={() => cart.setIsOpen(true)}>
+                View Cart
+              </Button>
+              <a href={`https://wa.me/919741433725?text=${encodeURIComponent(
+                `🛒 *Material Order from ParcelMaadi*\n\n` +
+                cart.items.map((i: any) => `• ${i.name}${i.unit ? ` (${i.unit})` : ""} × ${i.qty} = ₹${(i.price * i.qty).toLocaleString()}`).join("\n") +
+                `\n\n*Total: ₹${cart.total.toLocaleString()}*\n\n📍 Please confirm my delivery address.`
+              )}`} target="_blank">
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-bold">
+                  <MessageCircle className="w-4 h-4 mr-1" /> Order via WhatsApp
+                </Button>
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
