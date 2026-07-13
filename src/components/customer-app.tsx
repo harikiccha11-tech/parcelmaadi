@@ -5,6 +5,7 @@ import { ServiceIcon } from "@/components/service-icon";
 import { MapPicker, type MapPickerValue } from "@/components/map-picker";
 import { MotionBackground } from "@/components/motion-background";
 import { motion, AnimatePresence } from "framer-motion";
+import { isPincodeServiceable } from "@/lib/serviceable-areas";
 import { ServiceVideoBackground } from "@/components/service-video-background";
 import { useCart } from "@/lib/cart";
 import { CartDrawer } from "@/components/cart-drawer";
@@ -354,6 +355,12 @@ export function CustomerApp({ onOpenAdmin }: CustomerAppProps) {
     if (!customer.name.trim()) { toast.error("Name required"); return; }
     const cleanMobile = customer.mobile.replace(/\D/g, "");
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) { toast.error("Enter a valid 10-digit Indian mobile (starts 6-9)"); return; }
+    // Validate pincode — only allow bookings from serviceable areas
+    const pin = (pickup.address || "").match(/\b(\d{6})\b/);
+    if (pin && !isPincodeServiceable(pin[1])) {
+      toast.error(`✗ Booking not allowed at pincode ${pin[1]}. We serve Bengaluru, Davangere, Hosadurga & Chitradurga only.`);
+      return;
+    }
     if (submitting) return; // dedup on client
     setSubmitting(true);
     try {
@@ -912,9 +919,9 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
             </div>
             {/* Trust badges */}
             <div className="flex flex-wrap gap-4 pt-4 text-xs text-white/80">
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 4 Live Cities</span>
               <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 11 Services</span>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 16 Verified Vendors</span>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 150+ Products</span>
+              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 170+ Products</span>
               <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> Live Tracking</span>
             </div>
           </motion.div>
@@ -943,13 +950,13 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               <div className="inline-flex items-center gap-2 bg-brand-black text-brand-yellow px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-lg">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
                 <span className="w-2 h-2 bg-green-400 rounded-full -ml-3" />
-                LIVE NOW · EXPANDING ACROSS KARNATAKA
+                LIVE NOW · SERVING 4 KARNATAKA CITIES
               </div>
               <h2 className="text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg leading-tight">
-                🚀 Now Serving 25+ Karnataka Cities
+                🚀 Now Live in Bengaluru, Davangere, Hosadurga & Chitradurga
               </h2>
               <p className="text-base md:text-lg text-white/95 font-semibold mt-1 drop-shadow">
-                Book <span className="bg-brand-black text-brand-yellow px-2 py-0.5 rounded-md mx-1">Parcel, Goods, Water, Borewell, Machinery, Grocery</span> & more — live today, expanding to more cities every month
+                Book <span className="bg-brand-black text-brand-yellow px-2 py-0.5 rounded-md mx-1">Parcel, Goods, Water, Borewell, Machinery, Grocery, LPG Gas</span> & more — available now in these 4 cities
               </p>
               <p className="text-xs md:text-sm text-white/80 mt-1">
                 ಈಗಾಗಲೇ ಲೈವ್ · Fast · Local · Reliable
@@ -963,11 +970,9 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               </div>
               <div className="flex flex-wrap gap-1.5 justify-end max-w-[280px]">
                 <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Bengaluru</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Mysuru</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Hubballi</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Mangaluru</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Davangere</span>
                 <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Hosadurga</span>
-                <span className="bg-white/90 text-brand-red px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">+20 more</span>
+                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Chitradurga</span>
               </div>
             </div>
           </div>
@@ -979,7 +984,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
 
       {/* ─── Services grid — clean, images clearly visible ─── */}
       <section id="services" className="mx-auto max-w-6xl px-4 py-8">
-        {/* Pincode selector — sets zone for availability filtering */}
+        {/* Pincode selector — validates if service is available in customer's area */}
         <div className="mb-6 flex flex-col sm:flex-row items-center justify-center gap-3 p-4 rounded-2xl bg-muted/40 border-2 border-dashed border-brand-yellow/40">
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-brand-red" />
@@ -996,8 +1001,13 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
               setUserPincode(v);
               if (v.length === 6) {
-                localStorage.setItem("pm_pincode", v);
-                toast.success(`Showing services available at ${v}`);
+                if (isPincodeServiceable(v)) {
+                  localStorage.setItem("pm_pincode", v);
+                  toast.success(`✓ Service available at ${v} — booking enabled`);
+                } else {
+                  localStorage.removeItem("pm_pincode");
+                  toast.error(`✗ Sorry, ParcelMaadi is not available at pincode ${v}. We currently serve Bengaluru, Davangere, Hosadurga & Chitradurga only.`);
+                }
               } else if (v.length === 0) {
                 localStorage.removeItem("pm_pincode");
               }
@@ -1006,16 +1016,44 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
           />
           {userPincode && userPincode.length === 6 && (
             <button
-              onClick={() => { setUserPincode(""); localStorage.removeItem("pm_pincode"); toast.info("Showing all services"); }}
+              onClick={() => { setUserPincode(""); localStorage.removeItem("pm_pincode"); toast.info("Pincode cleared"); }}
               className="text-xs text-muted-foreground hover:text-brand-red underline"
             >
               Clear
             </button>
           )}
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            {userPincode && userPincode.length === 6 ? "✓ Zone filter active — showing only available services" : "Optional — shows services available in your area"}
+            {userPincode && userPincode.length === 6 ? (
+              isPincodeServiceable(userPincode) ? (
+                <span className="text-green-600 font-semibold">✓ Service available — you can book now</span>
+              ) : (
+                <span className="text-red-600 font-semibold">✗ Not available in your area — we serve Bengaluru, Davangere, Hosadurga & Chitradurga only</span>
+              )
+            ) : (
+              "Enter your pincode to check availability · We serve Bengaluru, Davangere, Hosadurga & Chitradurga"
+            )}
           </span>
         </div>
+
+        {/* Not available banner */}
+        {userPincode && userPincode.length === 6 && !isPincodeServiceable(userPincode) && (
+          <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border-2 border-red-500 text-center">
+            <div className="text-2xl mb-2">📍</div>
+            <h3 className="text-lg font-bold text-red-700 dark:text-red-400">ParcelMaadi is not available at pincode {userPincode}</h3>
+            <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+              We currently serve only <strong>Bengaluru, Davangere, Hosadurga & Chitradurga</strong>.
+              <br />Coming soon to more Karnataka cities. For inquiries, call <a href="tel:9741433725" className="underline font-bold">9741433725</a>.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3"
+              onClick={() => { setUserPincode(""); localStorage.removeItem("pm_pincode"); }}
+            >
+              Try different pincode
+            </Button>
+          </div>
+        )}
 
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Choose Your Service</h2>
