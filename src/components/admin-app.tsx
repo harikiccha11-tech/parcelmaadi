@@ -52,6 +52,7 @@ type Tab =
   | "cities" | "zones" | "pricing" | "coupons" | "offers" | "payments" | "wallet"
   | "settlements" | "reports" | "analytics" | "cms" | "media" | "banners" | "pages"
   | "menus" | "notifications" | "whatsapp" | "email" | "sms" | "support" | "audit-logs"
+  | "staff" | "salary" | "attendance"
   | "roles" | "permissions" | "feature-flags" | "api-keys" | "integrations" | "settings"
   | "backup" | "profile";
 
@@ -94,6 +95,9 @@ const NAV: NavItem[] = [
   { id: "email", label: "Email", icon: Mail, group: "Comms" },
   { id: "sms", label: "SMS", icon: Smartphone, group: "Comms" },
   { id: "support", label: "Support", icon: LifeBuoy, group: "Comms" },
+  { id: "staff", label: "Staff / Employees", icon: Users, group: "HR" },
+  { id: "salary", label: "Salary & Payroll", icon: IndianRupee, group: "HR" },
+  { id: "attendance", label: "Attendance", icon: CalendarClock, group: "HR" },
   { id: "audit-logs", label: "Audit Logs", icon: History, group: "System" },
   { id: "roles", label: "Role Management", icon: Shield, group: "System" },
   { id: "permissions", label: "Permissions", icon: Key, group: "System" },
@@ -534,6 +538,9 @@ function ActualModule({ tab, admin }: { tab: Tab; admin: AdminInfo }) {
     case "email": return <CommsModule channel="Email" />;
     case "sms": return <CommsModule channel="SMS" />;
     case "support": return <SupportModule />;
+    case "staff": return <StaffModule />;
+    case "salary": return <SalaryModule />;
+    case "attendance": return <AttendanceModule />;
     case "audit-logs": return <AuditLogsModule />;
     case "roles": return <RolesModule admin={admin} />;
     case "permissions": return <PermissionsModule />;
@@ -2286,6 +2293,757 @@ function SupportModule() {
       { name: "resolution", label: "Resolution", type: "textarea" },
     ],
   }} />;
+}
+
+// ============================================================
+// STAFF / EMPLOYEE MANAGEMENT — admin can create employees with login credentials
+// ============================================================
+function StaffModule() {
+  const [items, setItems] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterDept, setFilterDept] = useState("");
+  const [filterRole, setFilterRole] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
+  const [editing, setEditing] = useState<any>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [showResetPwd, setShowResetPwd] = useState<any>(null);
+  const [newPwd, setNewPwd] = useState("");
+  const LIMIT = 50;
+
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(LIMIT));
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      if (filterDept) params.set("department", filterDept);
+      if (filterRole) params.set("role", filterRole);
+      const r = await fetch(`/api/admin/staff?${params}`);
+      const d = await r.json();
+      setItems(d.items || []);
+      setTotal(d.total || 0);
+      setTotalPages(d.totalPages || 1);
+    } catch {
+      toast.error("Failed to load staff");
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, page, filterDept, filterRole]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSave = async (data: any) => {
+    try {
+      const isEdit = !!editing?.id;
+      const r = await fetch(isEdit ? `/api/admin/staff/${editing.id}` : "/api/admin/staff", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+      toast.success(`Employee ${isEdit ? "updated" : "created"} — login credentials ${isEdit ? "kept" : "set"}`);
+      setShowForm(false);
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPwd || newPwd.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    try {
+      const r = await fetch(`/api/admin/staff/${showResetPwd.id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: newPwd }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "Reset failed");
+      toast.success(`Password reset for ${showResetPwd.name}. They will be asked to change it on next login.`);
+      setShowResetPwd(null);
+      setNewPwd("");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleArchive = async (id: number) => {
+    if (!confirm("Archive this employee? They will no longer be able to login.")) return;
+    try {
+      const r = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("Failed");
+      toast.success("Employee archived");
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Staff / Employees</h1>
+          <p className="text-sm text-muted-foreground">{total} employees · {items.filter(i => i.status === "Active").length} active</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={filterDept} onChange={(e) => { setFilterDept(e.target.value); setPage(1); }} className="px-2 py-1.5 text-xs rounded-md border bg-background">
+            <option value="">All Departments</option>
+            <option value="Operations">Operations</option>
+            <option value="Customer Support">Customer Support</option>
+            <option value="Rider Management">Rider Management</option>
+            <option value="Accounts">Accounts</option>
+            <option value="Sales">Sales</option>
+            <option value="IT">IT</option>
+            <option value="HR">HR</option>
+            <option value="Logistics">Logistics</option>
+          </select>
+          <select value={filterRole} onChange={(e) => { setFilterRole(e.target.value); setPage(1); }} className="px-2 py-1.5 text-xs rounded-md border bg-background">
+            <option value="">All Roles</option>
+            <option value="Owner">Owner</option>
+            <option value="Admin">Admin</option>
+            <option value="Operations">Operations</option>
+            <option value="Accounts">Accounts</option>
+            <option value="Staff">Staff</option>
+            <option value="View">View</option>
+          </select>
+          <Button size="sm" onClick={() => { setEditing(null); setShowForm(true); }}>
+            <Plus className="w-4 h-4 mr-1" /> Add Employee
+          </Button>
+        </div>
+      </div>
+
+      <Card className="p-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search by name, email, employee ID, designation..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+            <div className="text-sm text-muted-foreground">No employees found</div>
+            <Button className="mt-3" size="sm" onClick={() => { setEditing(null); setShowForm(true); }}><Plus className="w-4 h-4 mr-1" /> Add first employee</Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Emp ID</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Name</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Designation</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Dept</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Mobile</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Role</th>
+                  <th className="text-right p-2 text-xs uppercase text-muted-foreground">Salary/mo</th>
+                  <th className="text-left p-2 text-xs uppercase text-muted-foreground">Status</th>
+                  <th className="text-right p-2 text-xs uppercase text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((s) => (
+                  <tr key={s.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2 font-mono text-xs">{s.employeeId || `#${s.id}`}</td>
+                    <td className="p-2">
+                      <div className="font-medium">{s.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.email}</div>
+                    </td>
+                    <td className="p-2">{s.designation || "—"}</td>
+                    <td className="p-2">{s.department || "—"}</td>
+                    <td className="p-2">{s.mobile || "—"}</td>
+                    <td className="p-2"><Badge variant="outline" className="text-[10px]">{s.role}</Badge></td>
+                    <td className="p-2 text-right font-medium">₹{(s.totalSalary || 0).toLocaleString()}</td>
+                    <td className="p-2">
+                      <Badge variant={s.status === "Active" ? "default" : "secondary"} className="text-[10px]">{s.status}</Badge>
+                      {s.forcePasswordChange && <div className="text-[9px] text-amber-600 mt-0.5">pwd reset needed</div>}
+                    </td>
+                    <td className="p-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setEditing(s); setShowForm(true); }}><Edit className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setShowResetPwd(s)}><Key className="w-4 h-4 mr-2" /> Reset Password</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toast.info("Payslip download coming soon")}><Download className="w-4 h-4 mr-2" /> Download Payslip</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleArchive(s.id)}><Trash2 className="w-4 h-4 mr-2" /> Archive</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">Showing {(page - 1) * LIMIT + 1}-{Math.min(page * LIMIT, total)} of {total}</div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>‹ Prev</Button>
+            <span className="text-xs px-3 py-1.5 bg-muted rounded-md">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next ›</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Form Dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? "Edit Employee" : "Add New Employee"}</DialogTitle>
+            <DialogDescription>{editing?.id ? "Update employee details" : "Create a new login account for your employee"}</DialogDescription>
+          </DialogHeader>
+          <StaffForm initial={editing} onSave={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!showResetPwd} onOpenChange={(o) => !o && setShowResetPwd(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>Set a new password for {showResetPwd?.name}. They will be asked to change it on next login.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input type="password" placeholder="New password (min 6 chars)" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
+            <div className="text-xs text-muted-foreground">Tip: Use a temporary password like <code className="bg-muted px-1 py-0.5 rounded">temp123</code> — the employee will be forced to change it on first login.</div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetPwd(null)}>Cancel</Button>
+            <Button onClick={handleResetPassword}><Key className="w-4 h-4 mr-1" /> Reset Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function StaffForm({ initial, onSave, onCancel }: any) {
+  const [data, setData] = useState<any>(initial || {});
+  const [password, setPassword] = useState("");
+  const set = (k: string, v: any) => setData((d: any) => ({ ...d, [k]: v }));
+  const isEdit = !!initial?.id;
+
+  return (
+    <div className="space-y-4">
+      {/* Login credentials */}
+      <div className="bg-muted/30 p-3 rounded-lg">
+        <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Login Credentials</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label className="text-xs">Name *</label><Input className="mt-1" value={data.name || ""} onChange={(e) => set("name", e.target.value)} /></div>
+          <div><label className="text-xs">Email (login) *</label><Input className="mt-1" value={data.email || ""} onChange={(e) => set("email", e.target.value)} /></div>
+          <div><label className="text-xs">Mobile</label><Input className="mt-1" value={data.mobile || ""} onChange={(e) => set("mobile", e.target.value)} /></div>
+          {!isEdit && (
+            <div><label className="text-xs">Password *</label><Input type="text" className="mt-1" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 chars (employee will change later)" /></div>
+          )}
+          <div><label className="text-xs">Role</label>
+            <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.role || "Staff"} onChange={(e) => set("role", e.target.value)}>
+              <option value="Owner">Owner (full access)</option>
+              <option value="Admin">Admin</option>
+              <option value="Operations">Operations</option>
+              <option value="Accounts">Accounts</option>
+              <option value="Staff">Staff</option>
+              <option value="View">View (read-only)</option>
+            </select>
+          </div>
+          <div><label className="text-xs">Status</label>
+            <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.status || "Active"} onChange={(e) => set("status", e.target.value)}>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Job details */}
+      <div className="bg-muted/30 p-3 rounded-lg">
+        <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Job Details</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label className="text-xs">Employee ID</label><Input className="mt-1" value={data.employeeId || ""} onChange={(e) => set("employeeId", e.target.value)} placeholder="e.g. PM-001" /></div>
+          <div><label className="text-xs">Designation</label><Input className="mt-1" value={data.designation || ""} onChange={(e) => set("designation", e.target.value)} placeholder="e.g. Call Support Exec" /></div>
+          <div><label className="text-xs">Department</label>
+            <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.department || ""} onChange={(e) => set("department", e.target.value)}>
+              <option value="">Select...</option>
+              <option value="Operations">Operations</option>
+              <option value="Customer Support">Customer Support</option>
+              <option value="Rider Management">Rider Management</option>
+              <option value="Accounts">Accounts</option>
+              <option value="Sales">Sales</option>
+              <option value="IT">IT</option>
+              <option value="HR">HR</option>
+              <option value="Logistics">Logistics</option>
+            </select>
+          </div>
+          <div><label className="text-xs">Branch</label><Input className="mt-1" value={data.branch || ""} onChange={(e) => set("branch", e.target.value)} placeholder="e.g. Bengaluru HQ" /></div>
+          <div><label className="text-xs">Reporting To</label><Input className="mt-1" value={data.reportingTo || ""} onChange={(e) => set("reportingTo", e.target.value)} placeholder="Manager name" /></div>
+          <div><label className="text-xs">Joining Date</label><Input type="date" className="mt-1" value={data.joiningDate ? data.joiningDate.split("T")[0] : ""} onChange={(e) => set("joiningDate", e.target.value)} /></div>
+          <div><label className="text-xs">Shift Timing</label><Input className="mt-1" value={data.shiftTiming || ""} onChange={(e) => set("shiftTiming", e.target.value)} placeholder="e.g. 9 AM - 6 PM" /></div>
+          <div><label className="text-xs">Profile Photo URL</label><Input className="mt-1" value={data.profilePhotoUrl || ""} onChange={(e) => set("profilePhotoUrl", e.target.value)} /></div>
+        </div>
+      </div>
+
+      {/* Personal info */}
+      <div className="bg-muted/30 p-3 rounded-lg">
+        <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Personal Info</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label className="text-xs">Date of Birth</label><Input type="date" className="mt-1" value={data.dateOfBirth ? data.dateOfBirth.split("T")[0] : ""} onChange={(e) => set("dateOfBirth", e.target.value)} /></div>
+          <div><label className="text-xs">Gender</label>
+            <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.gender || ""} onChange={(e) => set("gender", e.target.value)}>
+              <option value="">Select...</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div><label className="text-xs">Blood Group</label><Input className="mt-1" value={data.bloodGroup || ""} onChange={(e) => set("bloodGroup", e.target.value)} placeholder="e.g. O+" /></div>
+          <div><label className="text-xs">Emergency Contact Name</label><Input className="mt-1" value={data.emergencyName || ""} onChange={(e) => set("emergencyName", e.target.value)} /></div>
+          <div><label className="text-xs">Emergency Contact No.</label><Input className="mt-1" value={data.emergencyContact || ""} onChange={(e) => set("emergencyContact", e.target.value)} /></div>
+          <div className="md:col-span-2"><label className="text-xs">Address</label><Input className="mt-1" value={data.address || ""} onChange={(e) => set("address", e.target.value)} /></div>
+          <div><label className="text-xs">City</label><Input className="mt-1" value={data.city || ""} onChange={(e) => set("city", e.target.value)} /></div>
+          <div><label className="text-xs">Pincode</label><Input className="mt-1" value={data.pincode || ""} onChange={(e) => set("pincode", e.target.value)} /></div>
+        </div>
+      </div>
+
+      {/* Salary structure */}
+      <div className="bg-muted/30 p-3 rounded-lg">
+        <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Salary Structure (Monthly ₹)</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div><label className="text-xs">Basic</label><Input type="number" className="mt-1" value={data.basicSalary || 0} onChange={(e) => set("basicSalary", e.target.value)} /></div>
+          <div><label className="text-xs">HRA</label><Input type="number" className="mt-1" value={data.hraAllowance || 0} onChange={(e) => set("hraAllowance", e.target.value)} /></div>
+          <div><label className="text-xs">Conveyance</label><Input type="number" className="mt-1" value={data.conveyanceAllowance || 0} onChange={(e) => set("conveyanceAllowance", e.target.value)} /></div>
+          <div><label className="text-xs">Special Allow.</label><Input type="number" className="mt-1" value={data.specialAllowance || 0} onChange={(e) => set("specialAllowance", e.target.value)} /></div>
+        </div>
+        <div className="mt-2 text-sm font-medium">Total: ₹{((Number(data.basicSalary) || 0) + (Number(data.hraAllowance) || 0) + (Number(data.conveyanceAllowance) || 0) + (Number(data.specialAllowance) || 0)).toLocaleString()}/month</div>
+      </div>
+
+      {/* Bank & KYC */}
+      <div className="bg-muted/30 p-3 rounded-lg">
+        <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Bank & KYC</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label className="text-xs">Bank Name</label><Input className="mt-1" value={data.bankName || ""} onChange={(e) => set("bankName", e.target.value)} /></div>
+          <div><label className="text-xs">Account No.</label><Input className="mt-1" value={data.bankAccount || ""} onChange={(e) => set("bankAccount", e.target.value)} /></div>
+          <div><label className="text-xs">IFSC</label><Input className="mt-1" value={data.bankIfsc || ""} onChange={(e) => set("bankIfsc", e.target.value)} /></div>
+          <div><label className="text-xs">UPI ID</label><Input className="mt-1" value={data.upiId || ""} onChange={(e) => set("upiId", e.target.value)} /></div>
+          <div><label className="text-xs">Aadhaar</label><Input className="mt-1" value={data.aadhaar || ""} onChange={(e) => set("aadhaar", e.target.value)} /></div>
+          <div><label className="text-xs">PAN</label><Input className="mt-1" value={data.pan || ""} onChange={(e) => set("pan", e.target.value)} /></div>
+          <div><label className="text-xs">PF Number</label><Input className="mt-1" value={data.pfNumber || ""} onChange={(e) => set("pfNumber", e.target.value)} /></div>
+          <div><label className="text-xs">ESI Number</label><Input className="mt-1" value={data.esiNumber || ""} onChange={(e) => set("esiNumber", e.target.value)} /></div>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSave({ ...data, password })}>
+          <Check className="w-4 h-4 mr-1" /> {isEdit ? "Update Employee" : "Create Employee"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SALARY & PAYROLL MODULE
+// ============================================================
+function SalaryModule() {
+  const [items, setItems] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+
+  const loadStaff = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/staff?page=1&limit=100");
+      const d = await r.json();
+      setStaff(d.items || []);
+    } catch {}
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/admin/salary-payments?month=${month}&year=${year}&limit=200`);
+      const d = await r.json();
+      setItems(d.items || []);
+    } catch {
+      toast.error("Failed to load salary records");
+    } finally {
+      setLoading(false);
+    }
+  }, [month, year]);
+
+  useEffect(() => { loadStaff(); }, [loadStaff]);
+  useEffect(() => { load(); }, [load]);
+
+  const totalPayroll = items.reduce((sum, s) => sum + (s.netAmount || 0), 0);
+  const paidCount = items.filter(s => s.status === "Paid").length;
+  const pendingCount = items.filter(s => s.status === "Pending").length;
+
+  const handleGenerateAll = async () => {
+    if (!confirm(`Generate salary records for all ${staff.length} active staff for ${month}/${year}?`)) return;
+    let created = 0;
+    for (const s of staff) {
+      if (s.status !== "Active" || s.archived) continue;
+      try {
+        await fetch("/api/admin/salary-payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ staffId: s.id, month, year, status: "Pending" }),
+        });
+        created++;
+      } catch {}
+    }
+    toast.success(`Generated ${created} salary records for ${month}/${year}`);
+    load();
+  };
+
+  const handleStatusUpdate = async (id: number, status: string) => {
+    try {
+      await fetch(`/api/admin/salary-payments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      toast.success(`Marked as ${status}`);
+      load();
+    } catch {
+      toast.error("Failed to update status");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Salary & Payroll</h1>
+          <p className="text-sm text-muted-foreground">{items.length} records · Total: ₹{totalPayroll.toLocaleString()} · {paidCount} paid · {pendingCount} pending</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="px-2 py-1.5 text-sm rounded-md border bg-background">
+            {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+          </select>
+          <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24" />
+          <Button size="sm" variant="outline" onClick={handleGenerateAll}><Plus className="w-4 h-4 mr-1" /> Generate All</Button>
+          <Button size="sm" onClick={() => { setEditing(null); setShowForm(true); }}><Plus className="w-4 h-4 mr-1" /> Add Salary</Button>
+        </div>
+      </div>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center">
+            <IndianRupee className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+            <div className="text-sm text-muted-foreground">No salary records for {month}/{year}</div>
+            <Button className="mt-3" size="sm" onClick={handleGenerateAll}><Plus className="w-4 h-4 mr-1" /> Generate for all staff</Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="text-left p-2 text-xs uppercase">Employee</th>
+                  <th className="text-right p-2 text-xs uppercase">Basic</th>
+                  <th className="text-right p-2 text-xs uppercase">HRA</th>
+                  <th className="text-right p-2 text-xs uppercase">Allow.</th>
+                  <th className="text-right p-2 text-xs uppercase">Bonus</th>
+                  <th className="text-right p-2 text-xs uppercase">Deduct.</th>
+                  <th className="text-right p-2 text-xs uppercase">Net</th>
+                  <th className="text-center p-2 text-xs uppercase">Days P/A</th>
+                  <th className="text-left p-2 text-xs uppercase">Status</th>
+                  <th className="text-right p-2 text-xs uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((s) => (
+                  <tr key={s.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2">
+                      <div className="font-medium">{s.staff?.name || "—"}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.staff?.employeeId} · {s.staff?.designation}</div>
+                    </td>
+                    <td className="p-2 text-right">₹{s.basicSalary.toLocaleString()}</td>
+                    <td className="p-2 text-right">₹{s.hra.toLocaleString()}</td>
+                    <td className="p-2 text-right">₹{(s.conveyance + s.specialAllowance).toLocaleString()}</td>
+                    <td className="p-2 text-right text-green-600">₹{s.bonus.toLocaleString()}</td>
+                    <td className="p-2 text-right text-red-600">₹{(s.deductions + s.pfDeduction + s.esiDeduction + s.taxDeduction).toLocaleString()}</td>
+                    <td className="p-2 text-right font-bold">₹{s.netAmount.toLocaleString()}</td>
+                    <td className="p-2 text-center text-xs">{s.daysPresent}/{s.daysInMonth}</td>
+                    <td className="p-2"><Badge variant={s.status === "Paid" ? "default" : s.status === "Approved" ? "secondary" : "outline"} className="text-[10px]">{s.status}</Badge></td>
+                    <td className="p-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setEditing(s); setShowForm(true); }}><Edit className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
+                          {s.status === "Pending" && <DropdownMenuItem onClick={() => handleStatusUpdate(s.id, "Approved")}><Check className="w-4 h-4 mr-2" /> Approve</DropdownMenuItem>}
+                          {s.status !== "Paid" && <DropdownMenuItem onClick={() => handleStatusUpdate(s.id, "Paid")}><IndianRupee className="w-4 h-4 mr-2" /> Mark Paid</DropdownMenuItem>}
+                          <DropdownMenuItem onClick={() => toast.info("Payslip download coming soon")}><Download className="w-4 h-4 mr-2" /> Payslip</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-muted/30 font-bold">
+                <tr>
+                  <td className="p-2" colSpan={6}>Total Payroll</td>
+                  <td className="p-2 text-right">₹{totalPayroll.toLocaleString()}</td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? "Edit Salary Record" : "Add Salary Record"}</DialogTitle>
+          </DialogHeader>
+          <SalaryForm initial={editing} staff={staff} month={month} year={year} onSave={async (data: any) => {
+            try {
+              const r = await fetch("/api/admin/salary-payments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              });
+              if (!r.ok) throw new Error((await r.json()).error || "Save failed");
+              toast.success("Salary record saved");
+              setShowForm(false);
+              setEditing(null);
+              load();
+            } catch (e: any) { toast.error(e.message); }
+          }} onCancel={() => { setShowForm(false); setEditing(null); }} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function SalaryForm({ initial, staff, month, year, onSave, onCancel }: any) {
+  const [data, setData] = useState<any>(initial || { staffId: staff[0]?.id, month, year });
+  const set = (k: string, v: any) => setData((d: any) => ({ ...d, [k]: v }));
+  const basic = Number(data.basicSalary) || 0;
+  const hra = Number(data.hra) || 0;
+  const conv = Number(data.conveyance) || 0;
+  const spec = Number(data.specialAllowance) || 0;
+  const bonus = Number(data.bonus) || 0;
+  const deduct = Number(data.deductions) || 0;
+  const pf = Number(data.pfDeduction) || 0;
+  const esi = Number(data.esiDeduction) || 0;
+  const tax = Number(data.taxDeduction) || 0;
+  const net = (basic + hra + conv + spec + bonus) - (deduct + pf + esi + tax);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-xs">Employee</label>
+          <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.staffId || ""} onChange={(e) => set("staffId", Number(e.target.value))} disabled={!!initial?.id}>
+            <option value="">Select...</option>
+            {staff.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.employeeId || `#${s.id}`})</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className="text-xs">Month</label>
+            <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={data.month || month} onChange={(e) => set("month", Number(e.target.value))} disabled={!!initial?.id}>
+              {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+            </select>
+          </div>
+          <div><label className="text-xs">Year</label><Input type="number" className="mt-1" value={data.year || year} onChange={(e) => set("year", Number(e.target.value))} disabled={!!initial?.id} /></div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div><label className="text-xs">Basic ₹</label><Input type="number" className="mt-1" value={basic} onChange={(e) => set("basicSalary", e.target.value)} /></div>
+        <div><label className="text-xs">HRA ₹</label><Input type="number" className="mt-1" value={hra} onChange={(e) => set("hra", e.target.value)} /></div>
+        <div><label className="text-xs">Conveyance ₹</label><Input type="number" className="mt-1" value={conv} onChange={(e) => set("conveyance", e.target.value)} /></div>
+        <div><label className="text-xs">Special ₹</label><Input type="number" className="mt-1" value={spec} onChange={(e) => set("specialAllowance", e.target.value)} /></div>
+        <div><label className="text-xs">Bonus ₹</label><Input type="number" className="mt-1" value={bonus} onChange={(e) => set("bonus", e.target.value)} /></div>
+        <div><label className="text-xs">Other Deduct ₹</label><Input type="number" className="mt-1" value={deduct} onChange={(e) => set("deductions", e.target.value)} /></div>
+        <div><label className="text-xs">PF ₹</label><Input type="number" className="mt-1" value={pf} onChange={(e) => set("pfDeduction", e.target.value)} /></div>
+        <div><label className="text-xs">ESI ₹</label><Input type="number" className="mt-1" value={esi} onChange={(e) => set("esiDeduction", e.target.value)} /></div>
+        <div><label className="text-xs">Tax ₹</label><Input type="number" className="mt-1" value={tax} onChange={(e) => set("taxDeduction", e.target.value)} /></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className="text-xs">Days Present</label><Input type="number" className="mt-1" value={data.daysPresent || 0} onChange={(e) => set("daysPresent", e.target.value)} /></div>
+        <div><label className="text-xs">Days Absent</label><Input type="number" className="mt-1" value={data.daysAbsent || 0} onChange={(e) => set("daysAbsent", e.target.value)} /></div>
+        <div><label className="text-xs">Days in Month</label><Input type="number" className="mt-1" value={data.daysInMonth || 30} onChange={(e) => set("daysInMonth", e.target.value)} /></div>
+      </div>
+      <div className="bg-muted/30 p-3 rounded-lg flex items-center justify-between">
+        <span className="text-sm">Net Pay</span>
+        <span className="text-xl font-bold">₹{net.toLocaleString()}</span>
+      </div>
+      <div><label className="text-xs">Notes</label><Input className="mt-1" value={data.notes || ""} onChange={(e) => set("notes", e.target.value)} /></div>
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSave(data)}><Check className="w-4 h-4 mr-1" /> Save</Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ATTENDANCE MODULE
+// ============================================================
+function AttendanceModule() {
+  const [items, setItems] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bulkStatus, setBulkStatus] = useState<Record<number, string>>({});
+
+  const loadStaff = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/staff?page=1&limit=100");
+      const d = await r.json();
+      setStaff((d.items || []).filter((s: any) => s.status === "Active" && !s.archived));
+    } catch {}
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/admin/attendance?date=${date}&limit=200`);
+      const d = await r.json();
+      setItems(d.items || []);
+      // Initialize bulk status from existing records
+      const statusMap: Record<number, string> = {};
+      for (const a of d.items || []) {
+        statusMap[a.staffId] = a.status;
+      }
+      setBulkStatus(statusMap);
+    } catch {
+      toast.error("Failed to load attendance");
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
+
+  useEffect(() => { loadStaff(); }, [loadStaff]);
+  useEffect(() => { load(); }, [load]);
+
+  const markOne = async (staffId: number, status: string) => {
+    try {
+      await fetch("/api/admin/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId, date, status }),
+      });
+      setBulkStatus(s => ({ ...s, [staffId]: status }));
+      toast.success(`Marked ${status}`, { duration: 1500 });
+    } catch {
+      toast.error("Failed to mark attendance");
+    }
+  };
+
+  const markAllPresent = async () => {
+    if (!confirm(`Mark ALL ${staff.length} staff as Present for ${date}?`)) return;
+    try {
+      const r = await fetch("/api/admin/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffIds: staff.map((s: any) => s.id), date, status: "Present" }),
+      });
+      if (!r.ok) throw new Error("Failed");
+      toast.success(`Marked all ${staff.length} as Present`);
+      load();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Attendance</h1>
+          <p className="text-sm text-muted-foreground">Mark daily attendance for {staff.length} active staff</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+          <Button size="sm" onClick={markAllPresent}><Check className="w-4 h-4 mr-1" /> Mark All Present</Button>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="p-3"><div className="text-xs text-muted-foreground">Present</div><div className="text-xl font-bold text-green-600">{Object.values(bulkStatus).filter(s => s === "Present").length}</div></Card>
+        <Card className="p-3"><div className="text-xs text-muted-foreground">Absent</div><div className="text-xl font-bold text-red-600">{Object.values(bulkStatus).filter(s => s === "Absent").length}</div></Card>
+        <Card className="p-3"><div className="text-xs text-muted-foreground">Half-day</div><div className="text-xl font-bold text-amber-600">{Object.values(bulkStatus).filter(s => s === "Half-day").length}</div></Card>
+        <Card className="p-3"><div className="text-xs text-muted-foreground">On Leave</div><div className="text-xl font-bold text-blue-600">{Object.values(bulkStatus).filter(s => s === "Leave").length}</div></Card>
+      </div>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b">
+              <tr>
+                <th className="text-left p-2 text-xs uppercase">Emp ID</th>
+                <th className="text-left p-2 text-xs uppercase">Name</th>
+                <th className="text-left p-2 text-xs uppercase">Designation</th>
+                <th className="text-left p-2 text-xs uppercase">Dept</th>
+                <th className="text-center p-2 text-xs uppercase">Mark Attendance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s: any) => {
+                const status = bulkStatus[s.id] || "—";
+                return (
+                  <tr key={s.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2 font-mono text-xs">{s.employeeId || `#${s.id}`}</td>
+                    <td className="p-2 font-medium">{s.name}</td>
+                    <td className="p-2">{s.designation || "—"}</td>
+                    <td className="p-2">{s.department || "—"}</td>
+                    <td className="p-2">
+                      <div className="flex items-center justify-center gap-1">
+                        {["Present", "Half-day", "Absent", "Leave"].map(st => (
+                          <Button
+                            key={st}
+                            size="sm"
+                            variant={status === st ? "default" : "outline"}
+                            className={`h-7 text-[10px] px-2 ${status === st ? (st === "Present" ? "bg-green-600" : st === "Absent" ? "bg-red-600" : st === "Half-day" ? "bg-amber-600" : "bg-blue-600") : ""}`}
+                            onClick={() => markOne(s.id, st)}
+                          >
+                            {st === "Present" ? "P" : st === "Absent" ? "A" : st === "Half-day" ? "H" : "L"}
+                          </Button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
 }
 
 function AuditLogsModule() {

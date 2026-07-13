@@ -343,8 +343,43 @@ model AdminUser {
   status              String   @default("Active")
   forcePasswordChange Boolean  @default(true) @map("force_password_change")
   createdAt           DateTime @default(now()) @map("created_at")
+
+  // HR fields (nullable — existing admins have null)
+  employeeId          String?  @unique @map("employee_id")
+  designation         String?
+  department          String?
+  branch              String?
+  reportingTo         String?  @map("reporting_to")
+  joiningDate         DateTime? @map("joining_date")
+  dateOfBirth         DateTime? @map("date_of_birth")
+  gender              String?
+  bloodGroup          String?  @map("blood_group")
+  address             String?
+  city                String?
+  pincode             String?
+  aadhaar             String?
+  pan                 String?
+  bankName            String?  @map("bank_name")
+  bankAccount         String?  @map("bank_account")
+  bankIfsc            String?  @map("bank_ifsc")
+  upiId               String?  @map("upi_id")
+  emergencyContact    String?  @map("emergency_contact")
+  emergencyName       String?  @map("emergency_name")
+  basicSalary         Float    @default(0) @map("basic_salary")
+  hraAllowance        Float    @default(0) @map("hra_allowance")
+  conveyanceAllowance Float    @default(0) @map("conveyance_allowance")
+  specialAllowance    Float    @default(0) @map("special_allowance")
+  pfNumber            String?  @map("pf_number")
+  esiNumber           String?  @map("esi_number")
+  shiftTiming         String?  @map("shift_timing")
+  profilePhotoUrl     String?  @map("profile_photo_url")
+  archived            Boolean  @default(false)
+
   resetTokens         PasswordReset[]
   activities          AdminActivity[]
+  salaryPayments      SalaryPayment[]
+  attendances         Attendance[]
+  leaveRequests       LeaveRequest[]
 }
 
 model PasswordReset {
@@ -705,4 +740,75 @@ model ZoneAvailability {
 
   @@unique([zoneId, itemType, itemId])
   @@index([zoneId, itemType])
+}
+
+// =====================================================
+// HR / EMPLOYEE MANAGEMENT — staff, salary, attendance, leaves
+// =====================================================
+
+model SalaryPayment {
+  id              Int       @id @default(autoincrement())
+  staffId         Int       @map("staff_id")
+  staff           AdminUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month           Int       // 1-12
+  year            Int
+  basicSalary     Float     @default(0) @map("basic_salary")
+  hra             Float     @default(0)
+  conveyance      Float     @default(0)
+  specialAllowance Float    @default(0) @map("special_allowance")
+  bonus           Float     @default(0)
+  deductions      Float     @default(0)
+  pfDeduction     Float     @default(0) @map("pf_deduction")
+  esiDeduction    Float     @default(0) @map("esi_deduction")
+  taxDeduction    Float     @default(0) @map("tax_deduction")
+  netAmount       Float     @default(0) @map("net_amount")
+  daysPresent     Int       @default(0) @map("days_present")
+  daysAbsent      Int       @default(0) @map("days_absent")
+  daysInMonth     Int       @default(30) @map("days_in_month")
+  status          String    @default("Pending") // Pending, Approved, Paid
+  paidAt          DateTime? @map("paid_at")
+  utr             String?   // bank UTR
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([staffId, month, year])
+  @@index([staffId])
+  @@index([status])
+}
+
+model Attendance {
+  id          Int       @id @default(autoincrement())
+  staffId     Int       @map("staff_id")
+  staff       AdminUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date        DateTime
+  status      String    @default("Present") // Present, Absent, Half-day, Leave, Holiday
+  checkIn     DateTime? @map("check_in")
+  checkOut    DateTime? @map("check_out")
+  workHours   Float?    @map("work_hours")
+  notes       String?
+  markedBy    String?   @map("marked_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([staffId, date])
+  @@index([staffId, date])
+}
+
+model LeaveRequest {
+  id          Int       @id @default(autoincrement())
+  staffId     Int       @map("staff_id")
+  staff       AdminUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  leaveType   String    @default("Casual") // Casual, Sick, Earned, Unpaid, Maternity
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  days        Int       @default(1)
+  reason      String?
+  status      String    @default("Pending") // Pending, Approved, Rejected
+  approvedBy  String?   @map("approved_by")
+  approvedAt  DateTime? @map("approved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([staffId])
+  @@index([status])
 }
