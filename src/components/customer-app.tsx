@@ -934,7 +934,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
       </div>
 
       {/* ─── Hero section — premium with video background ─── */}
-      <section className="relative overflow-hidden min-h-[55vh] md:min-h-[65vh] flex items-center bg-brand-black">
+      <section className="relative overflow-hidden min-h-[55vh] md:min-h-[65vh] flex items-center bg-brand-black hero-premium" style={{borderRadius: "0 0 60px 60px", margin: "0 0 40px"}}>
         {/* Background — video for water-supply service, image fallback for others */}
         <div className="absolute inset-0">
           {services.find((s: Service) => s.slug === "water-supply")?.imageUrl ? (
@@ -987,7 +987,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               </motion.div></a>
             </div>
             {/* Trust badges */}
-            <div className="flex flex-wrap gap-4 pt-4 text-xs text-white/80">
+            <div className="flex flex-wrap gap-4 pt-4 text-xs text-white/80 hero-stats-premium" style={{marginTop: "20px"}}>
               <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 4 Live Cities</span>
               <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 11 Services</span>
               <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 170+ Products</span>
@@ -1125,7 +1125,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
         )}
 
         <div className="text-center mb-6">
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Choose Your Service</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight section-title-premium">Choose Your Service</h2>
           <div className="h-1 brand-gradient rounded-full mt-2 mx-auto w-32" />
           <p className="text-muted-foreground mt-2 text-sm">
             {services.length === 0 ? "Loading services..." : `${services.length} services. One app. Book in 2 minutes.`}
@@ -1166,7 +1166,7 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
               }
               onSelectService(svc);
             }}
-              className="group text-left rounded-2xl border-2 border-border bg-card overflow-hidden hover:border-brand-yellow hover:shadow-2xl transition-all duration-300">
+              className="group text-left rounded-2xl border-2 border-border bg-card overflow-hidden hover:border-brand-yellow hover:shadow-2xl transition-all duration-300 service-card-premium card-glow">
               {/* Image */}
               <div className="aspect-[4/3] relative overflow-hidden bg-muted">
                 {svc.imageUrl ? (
