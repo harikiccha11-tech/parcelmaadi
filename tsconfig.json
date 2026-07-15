@@ -40,6 +40,8 @@
     "node_modules",
     "examples",
     "skills",
+    "upload",
+    "download",
     "scripts/seed-product-master.ts"
   ]
 }

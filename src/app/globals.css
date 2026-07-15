@@ -3,6 +3,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ParcelMaadi brand tokens (v1.1 admin/pricing pages use these) */
+@theme {
+  --color-pm-yellow: #ffc400;
+  --color-pm-yellow-deep: #f5a800;
+  --color-pm-red: #e23124;
+  --color-pm-red-deep: #c21f14;
+  --color-pm-ink: #241a10;
+  --color-pm-cream: #fff8e7;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

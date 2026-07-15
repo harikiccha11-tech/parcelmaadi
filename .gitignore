@@ -60,3 +60,8 @@ tmp/
 
 # skill files (internal)
 skills/
+
+# v1.1 upgrade source (large zip + extracted files, not for repo)
+upload/
+download/
+agent-ctx/
