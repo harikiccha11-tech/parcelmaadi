@@ -1,14 +1,25 @@
 {
   "name": "ParcelMaadi — Fast Local Reliable",
   "short_name": "ParcelMaadi",
-  "description": "Book parcel delivery, goods vehicles, water tankers, construction material and machinery rental in minutes. By HP Enterprise.",
+  "description": "Book parcel delivery, goods vehicles, water tankers, construction material, machinery rental, grocery, LPG gas and more across Karnataka. By HP Enterprise.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#FACC15",
+  "background_color": "#1A1A1A",
+  "theme_color": "#FFD700",
   "orientation": "portrait-primary",
+  "scope": "/",
   "icons": [
-    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
-  "categories": ["business", "logistics", "shopping"]
+  "categories": ["business", "logistics", "shopping"],
+  "shortcuts": [
+    { "name": "Book Now", "url": "/?action=book", "icons": [{"src": "/logo.png", "sizes": "96x96"}] },
+    { "name": "Track Order", "url": "/?action=track", "icons": [{"src": "/logo.png", "sizes": "96x96"}] },
+    { "name": "Admin Panel", "url": "/?admin=1", "icons": [{"src": "/logo.png", "sizes": "96x96"}] }
+  ]
 }
