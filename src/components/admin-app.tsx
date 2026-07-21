@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AIAssistButton } from "@/components/admin/ai-assist-button";
 import {
   LayoutDashboard, CalendarClock, Users, Bike, Store, Building2, ShoppingBag,
   Package, Tags, Boxes, Wrench, Truck, MapPin, Map, Tag, Ticket, Percent,
@@ -1154,48 +1155,50 @@ function CrudForm({ config, initial, onSave, onCancel }: any) {
   const [data, setData] = useState<any>(initial || {});
   const field = (name: string) => data[name] ?? "";
   const setField = (name: string, val: any) => setData((d: any) => ({ ...d, [name]: val }));
+  const isTitleField = (name: string) => ["name", "productName", "title", "shopName", "supplierName"].includes(name);
+  const isDescField = (name: string) => ["description", "notes", "body", "resolution"].includes(name);
+  const isCatField = (name: string) => ["category", "subcategory"].includes(name);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {config.formFields.map((f: any) => (
           <div key={f.name} className={f.type === "textarea" ? "md:col-span-2" : ""}>
-            <label className="text-xs font-medium text-muted-foreground">{f.label}{f.required && " *"}</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">{f.label}{f.required && " *"}</label>
+              {f.type !== "switch" && f.type !== "date" && f.type !== "number" && field(f.name) && (
+                <div className="flex gap-1">
+                  {isTitleField(f.name) && <AIAssistButton action="improve-title" text={field(f.name)} onResult={(r) => setField(f.name, r)} />}
+                  {isDescField(f.name) && <><AIAssistButton action="rewrite-professional" text={field(f.name)} onResult={(r) => setField(f.name, r)} /><AIAssistButton action="grammar-fix" text={field(f.name)} onResult={(r) => setField(f.name, r)} /></>}
+                  {isCatField(f.name) && <AIAssistButton action="suggest-category" text={field("name") || field("productName") || "product"} onResult={(r) => setField(f.name, r)} />}
+                </div>
+              )}
+            </div>
             {f.type === "textarea" ? (
-              <textarea
-                className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm min-h-[80px]"
-                value={field(f.name)}
-                onChange={(e) => setField(f.name, e.target.value)}
-              />
+              <div className="relative">
+                <textarea className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm min-h-[80px]" value={field(f.name)} onChange={(e) => setField(f.name, e.target.value)} />
+                {isDescField(f.name) && field(f.name) && (
+                  <div className="absolute bottom-2 right-2 flex gap-1">
+                    <AIAssistButton action="marketing-description" text={field(f.name)} onResult={(r) => setField(f.name, r)} label="Marketing" />
+                  </div>
+                )}
+              </div>
             ) : f.type === "select" ? (
-              <select
-                className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm"
-                value={field(f.name)}
-                onChange={(e) => setField(f.name, e.target.value)}
-              >
+              <select className="mt-1 w-full px-3 py-2 rounded-md border bg-background text-sm" value={field(f.name)} onChange={(e) => setField(f.name, e.target.value)}>
                 <option value="">Select...</option>
                 {f.options?.map((o: string) => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : f.type === "switch" ? (
-              <div className="mt-1">
-                <Switch checked={!!field(f.name)} onCheckedChange={(c) => setField(f.name, c)} />
-              </div>
+              <div className="mt-1"><Switch checked={!!field(f.name)} onCheckedChange={(c) => setField(f.name, c)} /></div>
             ) : (
-              <Input
-                type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                value={field(f.name)}
-                onChange={(e) => setField(f.name, e.target.value)}
-                className="mt-1"
-              />
+              <Input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={field(f.name)} onChange={(e) => setField(f.name, e.target.value)} className="mt-1" />
             )}
           </div>
         ))}
       </div>
       <div className="flex justify-end gap-2 pt-3 border-t">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(data)}>
-          <Check className="w-4 h-4 mr-1" /> Save
-        </Button>
+        <Button onClick={() => onSave(data)}><Check className="w-4 h-4 mr-1" /> Save</Button>
       </div>
     </div>
   );
