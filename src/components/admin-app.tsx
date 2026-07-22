@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AIAssistButton } from "@/components/admin/ai-assist-button";
+import { FloatingAIAssistant } from "@/components/admin/floating-ai-assistant";
+import { AnimatedCounter } from "@/components/admin/animated-counter";
 import {
   LayoutDashboard, CalendarClock, Users, Bike, Store, Building2, ShoppingBag,
   Package, Tags, Boxes, Wrench, Truck, MapPin, Map, Tag, Ticket, Percent,
@@ -230,6 +232,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
         onSelect={(t) => { setTab(t); setCmdOpen(false); }}
       />
 
+      <FloatingAIAssistant />
       <Toaster position="top-right" richColors />
     </div>
   );
@@ -619,7 +622,13 @@ function DashboardModule() {
                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${kpi.color} flex items-center justify-center text-white mb-2`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                <div className="text-xl font-bold leading-tight">{kpi.value}</div>
+                <div className="text-xl font-bold leading-tight">
+                  {typeof kpi.value === "number" ? (
+                    <AnimatedCounter value={kpi.value} prefix={kpi.label.includes("Revenue") ? "₹" : ""} />
+                  ) : (
+                    kpi.value
+                  )}
+                </div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-1 truncate">{kpi.label}</div>
               </Card>
             </motion.div>
@@ -986,10 +995,43 @@ function CrudModule({ config }: { config: CrudConfig }) {
               <Trash2 className="w-4 h-4 mr-1" /> Archive ({selected.length})
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => toast.info("Export started")}>
+          <Button variant="outline" size="sm" onClick={() => {
+            const params = new URLSearchParams();
+            params.set("format", "csv");
+            if (debouncedSearch) params.set("q", debouncedSearch);
+            window.open(`${config.endpoint}/export?${params}`, "_blank");
+            toast.success("Export downloading...");
+          }}>
             <Download className="w-4 h-4 mr-1" /> Export
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.info("Import via CSV")}>
+          <Button variant="outline" size="sm" onClick={() => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".csv";
+            input.onchange = async (e: any) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const formData = new FormData();
+              formData.append("file", file);
+              toast.info("Importing CSV...");
+              try {
+                const r = await fetch(`${config.endpoint}/import`, {
+                  method: "POST",
+                  body: formData,
+                });
+                const d = await r.json();
+                if (r.ok) {
+                  toast.success(`Imported: ${d.imported || 0}, Updated: ${d.updated || 0}`);
+                  load();
+                } else {
+                  toast.error(d.error || "Import failed");
+                }
+              } catch (err: any) {
+                toast.error(err.message);
+              }
+            };
+            input.click();
+          }}>
             <Upload className="w-4 h-4 mr-1" /> Import
           </Button>
           <Button size="sm" onClick={() => { setEditing(null); setShowForm(true); }}>
@@ -1155,12 +1197,22 @@ function CrudForm({ config, initial, onSave, onCancel }: any) {
   const [data, setData] = useState<any>(initial || {});
   const field = (name: string) => data[name] ?? "";
   const setField = (name: string, val: any) => setData((d: any) => ({ ...d, [name]: val }));
-  const isTitleField = (name: string) => ["name", "productName", "title", "shopName", "supplierName"].includes(name);
-  const isDescField = (name: string) => ["description", "notes", "body", "resolution"].includes(name);
-  const isCatField = (name: string) => ["category", "subcategory"].includes(name);
+  const isTitleField = (n: string) => ["name", "productName", "title", "shopName", "supplierName"].includes(n);
+  const isDescField = (n: string) => ["description", "notes", "body", "resolution"].includes(n);
+  const isCatField = (n: string) => ["category", "subcategory"].includes(n);
 
   return (
     <div className="space-y-4">
+      {/* AI banner — shows this form has AI assistance */}
+      <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-950/20 border border-purple-300 dark:border-purple-800 rounded-lg p-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill="url(#gem-banner)"/>
+          <path d="M12 18L12.5 20.5L13 22L12 21L11 22L11.5 20.5L12 18Z" fill="#8B5CF6"/>
+          <defs><linearGradient id="gem-banner" x1="4" y1="2" x2="20" y2="18"><stop stopColor="#A78BFA"/><stop offset="0.5" stopColor="#8B5CF6"/><stop offset="1" stopColor="#6366F1"/></linearGradient></defs>
+        </svg>
+        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">AI Assistant Active</span>
+        <span className="text-xs text-muted-foreground">— Type in any field below, then click AI button to auto-generate content</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {config.formFields.map((f: any) => (
           <div key={f.name} className={f.type === "textarea" ? "md:col-span-2" : ""}>
@@ -1982,17 +2034,26 @@ function ReportsModule() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Reports</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating PDF report...")}>
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => {
+          window.open("/api/admin/bookings/export?format=csv", "_blank");
+          toast.success("Downloading PDF report...");
+        }}>
           <FileText className="w-8 h-8 text-red-500 mb-2" />
           <div className="font-semibold">PDF Report</div>
           <div className="text-xs text-muted-foreground">Download comprehensive PDF</div>
         </Card>
-        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating Excel report...")}>
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => {
+          window.open("/api/admin/products/export?format=csv", "_blank");
+          toast.success("Downloading Excel report...");
+        }}>
           <FileBarChart className="w-8 h-8 text-green-500 mb-2" />
           <div className="font-semibold">Excel Report</div>
           <div className="text-xs text-muted-foreground">Spreadsheet with all data</div>
         </Card>
-        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => toast.info("Generating CSV...")}>
+        <Card className="p-4 hover:shadow-lg cursor-pointer" onClick={() => {
+          window.open("/api/admin/bookings/export?format=csv", "_blank");
+          toast.success("Downloading CSV...");
+        }}>
           <Download className="w-8 h-8 text-blue-500 mb-2" />
           <div className="font-semibold">CSV Export</div>
           <div className="text-xs text-muted-foreground">Raw data for import</div>
@@ -2005,8 +2066,8 @@ function ReportsModule() {
             <div key={r} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
               <span>{r}</span>
               <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => toast.info(`Generating ${r} PDF...`)}>PDF</Button>
-                <Button size="sm" variant="ghost" onClick={() => toast.info(`Generating ${r} Excel...`)}>Excel</Button>
+                <Button size="sm" variant="ghost" onClick={() => { window.open("/api/admin/bookings/export?format=csv", "_blank"); toast.success("Downloading " + r); }}>PDF</Button>
+                <Button size="sm" variant="ghost" onClick={() => { window.open("/api/admin/products/export?format=csv", "_blank"); toast.success("Downloading " + r); }}>Excel</Button>
               </div>
             </div>
           ))}
@@ -3447,7 +3508,7 @@ function BackupModule() {
           <DatabaseBackup className="w-8 h-8 text-indigo-500 mb-2" />
           <div className="font-semibold">Create Backup</div>
           <div className="text-xs text-muted-foreground mb-3">Export all data as JSON snapshot</div>
-          <Button size="sm" onClick={() => toast.info("Backup started — link will be available when ready")}>
+          <Button size="sm" onClick={() => { window.open("/api/admin/bookings/export?format=csv", "_blank"); toast.success("Backup downloading..."); }}>
             <DatabaseBackup className="w-4 h-4 mr-1" /> Backup Now
           </Button>
         </Card>
