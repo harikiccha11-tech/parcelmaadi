@@ -933,167 +933,69 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
         <style>{`@keyframes pm-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} } .pm-ticker{animation:pm-ticker 25s linear infinite;display:inline-block}`}</style>
       </div>
 
-      {/* ─── Hero section — premium with video background ─── */}
-      <section className="relative overflow-hidden min-h-[55vh] md:min-h-[65vh] flex items-center bg-brand-black hero-premium" style={{borderRadius: "0 0 60px 60px", margin: "0 0 40px"}}>
-        {/* Background — video for water-supply service, image fallback for others */}
-        <div className="absolute inset-0">
-          {services.find((s: Service) => s.slug === "water-supply")?.imageUrl ? (
-            <>
-              {/* Use service image as background with subtle zoom animation */}
-              <img
-                src={services.find((s: Service) => s.slug === "water-supply")?.imageUrl || services[0]?.imageUrl || "/logo.png"}
-                alt="ParcelMaadi delivery"
-                className="w-full h-full object-cover opacity-70 animate-[slow-zoom_20s_ease-in-out_infinite_alternate]"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-brand-black via-brand-black/85 to-brand-black/40" />
-              <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-transparent to-transparent" />
-            </>
-          ) : (
-            <>
-              <img src={services[0]?.imageUrl || "/logo.png"} alt="ParcelMaadi delivery" className="w-full h-full object-cover opacity-60" loading="eager" />
-              <div className="absolute inset-0 bg-gradient-to-r from-brand-black via-brand-black/80 to-transparent" />
-            </>
-          )}
-        </div>
-        {/* Animated decorative elements */}
-        <div className="absolute top-10 right-10 w-32 h-32 bg-brand-yellow/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "4s" }} />
-        <div className="absolute bottom-10 left-10 w-40 h-40 bg-brand-red/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "5s", animationDelay: "1s" }} />
-        {/* Content */}
-        <div className="relative mx-auto max-w-6xl px-4 py-12 md:py-20 text-white w-full z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-xl space-y-4"
-          >
-            <div className="inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse" /> LIVE — Now Booking Across Karnataka
+      {/* ═══════ 1. PREMIUM WHITE HERO ═══════ */}
+      <section className="relative overflow-hidden bg-white" style={{minHeight: "90vh", display: "flex", alignItems: "center"}}>
+        <div className="absolute inset-0" style={{background: "linear-gradient(135deg, #ffffff 0%, #f0f4ff 30%, #fff8e7 60%, #ffffff 100%)"}} />
+        <div className="absolute top-10 right-10 w-80 h-80 rounded-full blur-3xl opacity-30" style={{background: "radial-gradient(circle, #FFD700, transparent)"}} />
+        <div className="absolute bottom-10 left-10 w-96 h-96 rounded-full blur-3xl opacity-20" style={{background: "radial-gradient(circle, #E31E24, transparent)"}} />
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:py-24 w-full text-center">
+          <motion.div initial={{opacity:0, y:30}} animate={{opacity:1, y:0}} transition={{duration:0.8}} className="max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-6" style={{background: "linear-gradient(135deg, #fff8e7, #fff0f0)", border: "1px solid #FFD700"}}>
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs font-bold" style={{color: "#E31E24"}}>LIVE NOW · Bengaluru · Davangere · Hosadurga · Chitradurga</span>
             </div>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow-2xl">
-              {hero.title || "Fast Local Reliable Parcel & Goods Delivery"}
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black leading-tight mb-4" style={{color: "#1a1a1a"}}>
+              Parcel & Goods Delivery,<br />
+              <span style={{background: "linear-gradient(135deg, #E31E24, #FF6B35, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text"}}>Built for Karnataka</span>
             </h1>
-            <p className="text-sm md:text-base lg:text-lg text-white/90 max-w-md drop-shadow-lg">{hero.subtitle} — {hero.body}</p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <a href="#services"><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="lg" className="bg-brand-yellow text-brand-black hover:bg-brand-gold font-bold h-12 px-8 shadow-xl text-base">
-                  Book Now <ArrowRight className="w-5 h-5 ml-1" />
-                </Button>
-              </motion.div></a>
-              <a href={`tel:${settings.contact_1 || "9741433725"}`}><motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-brand-black bg-transparent h-12 px-8 text-base">
-                  <Phone className="w-5 h-5 mr-2" /> Call to Book
-                </Button>
-              </motion.div></a>
+            <p className="text-base md:text-xl mb-8 max-w-xl mx-auto" style={{color: "#555"}}>
+              Book parcel delivery, goods vehicles, water tankers, construction materials, machinery and everyday essentials — all from one trusted local platform.
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center mb-10">
+              <a href="#services"><button className="px-10 py-4 rounded-full font-bold text-white text-base transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #E31E24, #FF6B35)", boxShadow: "0 8px 30px rgba(227,30,36,0.35)"}}>Book Now <ArrowRight className="w-5 h-5 inline ml-2" /></button></a>
+              <a href="tel:9741433725"><button className="px-10 py-4 rounded-full font-bold text-base border-2 transition-all hover:bg-gray-50" style={{borderColor: "#1a1a1a", color: "#1a1a1a"}}><Phone className="w-5 h-5 inline mr-2" /> Call to Book</button></a>
             </div>
-            {/* Trust badges */}
-            <div className="flex flex-wrap gap-4 pt-4 text-xs text-white/80 hero-stats-premium" style={{marginTop: "20px"}}>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 4 Live Cities</span>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 11 Services</span>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> 170+ Products</span>
-              <span className="flex items-center gap-1"><span className="text-brand-yellow">✓</span> Live Tracking</span>
+            <div className="flex flex-wrap gap-8 justify-center">
+              {[{n:"12",l:"Services"},{n:"225+",l:"Products"},{n:"18+",l:"Vendors"},{n:"4",l:"Cities"}].map((s,i) => (
+                <div key={i}><div className="text-3xl md:text-4xl font-black" style={{background: "linear-gradient(135deg, #FFD700, #FF6B35)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>{s.n}</div><div className="text-xs uppercase tracking-wider text-gray-500 font-semibold">{s.l}</div></div>
+              ))}
             </div>
           </motion.div>
         </div>
-        <style>{`@keyframes slow-zoom { 0%{transform:scale(1)} 100%{transform:scale(1.1)} }`}</style>
       </section>
 
-      {/* ═══════ APP DOWNLOAD SECTION ═══════ */}
+      {/* ═══════ 2. APP DOWNLOAD ═══════ */}
       <section className="bg-white py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h3 className="text-2xl md:text-3xl font-black mb-2" style={{color: "#1a1a1a"}}>📲 Download ParcelMaadi App</h3>
           <p className="text-gray-500 mb-8">Choose your app and get started today.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Customer App */}
             <div className="rounded-2xl p-6 text-center" style={{background: "linear-gradient(135deg, #fff8e7, #ffffff)", border: "2px solid #FFD700", boxShadow: "0 4px 20px rgba(255,215,0,0.15)"}}>
               <div className="text-5xl mb-3">👤</div>
               <h4 className="text-lg font-bold mb-1" style={{color: "#1a1a1a"}}>Customer App</h4>
               <p className="text-sm text-gray-500 mb-4">Book Your Vehicle</p>
-              <a href="https://drive.google.com/uc?export=download&id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" target="_blank" rel="noopener noreferrer">
-                <button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #E31E24, #FF6B35)", boxShadow: "0 4px 15px rgba(227,30,36,0.3)"}}>
-                  DOWNLOAD CUSTOMER APP
-                </button>
-              </a>
-              <div className="mt-4 flex flex-col items-center">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" alt="Scan to download customer app" className="w-32 h-32 rounded-lg" />
-                <span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD CUSTOMER APP</span>
-              </div>
+              <a href="https://drive.google.com/uc?export=download&id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" target="_blank" rel="noopener noreferrer"><button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #E31E24, #FF6B35)", boxShadow: "0 4px 15px rgba(227,30,36,0.3)"}}>DOWNLOAD CUSTOMER APP</button></a>
+              <div className="mt-4 flex flex-col items-center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" alt="Scan to download customer app" className="w-32 h-32 rounded-lg" /><span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD CUSTOMER APP</span></div>
             </div>
-            {/* Rider App */}
             <div className="rounded-2xl p-6 text-center" style={{background: "linear-gradient(135deg, #f0f4ff, #ffffff)", border: "2px solid #6366F1", boxShadow: "0 4px 20px rgba(99,102,241,0.15)"}}>
               <div className="text-5xl mb-3">🛵</div>
               <h4 className="text-lg font-bold mb-1" style={{color: "#1a1a1a"}}>Rider App</h4>
               <p className="text-sm text-gray-500 mb-4">Join as a Rider</p>
-              <a href="https://drive.google.com/uc?export=download&id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" target="_blank" rel="noopener noreferrer">
-                <button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #6366F1, #8B5CF6)", boxShadow: "0 4px 15px rgba(99,102,241,0.3)"}}>
-                  DOWNLOAD RIDER APP
-                </button>
-              </a>
-              <div className="mt-4 flex flex-col items-center">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" alt="Scan to download rider app" className="w-32 h-32 rounded-lg" />
-                <span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD RIDER APP</span>
-              </div>
+              <a href="https://drive.google.com/uc?export=download&id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" target="_blank" rel="noopener noreferrer"><button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #6366F1, #8B5CF6)", boxShadow: "0 4px 15px rgba(99,102,241,0.3)"}}>DOWNLOAD RIDER APP</button></a>
+              <div className="mt-4 flex flex-col items-center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" alt="Scan to download rider app" className="w-32 h-32 rounded-lg" /><span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD RIDER APP</span></div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Announcement bar ─── */}
-      {settings.announcement && (
-        <div className="bg-brand-red text-white py-2 text-center text-sm font-medium">
-          🔔 {settings.announcement}
+      {/* ═══════ 3. SERVICE SHOWCASE ═══════ */}
+      <section id="services" className="bg-white py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-black text-center mb-2" style={{color: "#1a1a1a"}}>Choose Your <span style={{color: "#E31E24"}}>Service</span></h2>
+          <div className="w-20 h-1 mx-auto mb-3 rounded-full" style={{background: "linear-gradient(90deg, #FFD700, #FF6B35)"}} />
+          <p className="text-center text-gray-500 mb-8">{services.length} services. One platform. Book in 2 minutes.</p>
         </div>
-      )}
-
-      {/* ─── COMING SOON BANNER — big, colorful, animated ─── */}
-      <section className="relative overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-red via-brand-gold to-brand-yellow animate-pulse" style={{ animationDuration: "3s" }} />
-        {/* Decorative circles */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/20 rounded-full blur-2xl" />
-        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-brand-black/20 rounded-full blur-2xl" />
-
-        <div className="relative mx-auto max-w-6xl px-4 py-8 md:py-10">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-brand-black text-brand-yellow px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-lg">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
-                <span className="w-2 h-2 bg-green-400 rounded-full -ml-3" />
-                LIVE NOW · SERVING 4 KARNATAKA CITIES
-              </div>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg leading-tight">
-                🚀 Now Live in Bengaluru, Davangere, Hosadurga & Chitradurga
-              </h2>
-              <p className="text-base md:text-lg text-white/95 font-semibold mt-1 drop-shadow">
-                Book <span className="bg-brand-black text-brand-yellow px-2 py-0.5 rounded-md mx-1">Parcel, Goods, Water, Borewell, Machinery, Grocery, LPG Gas</span> & more — available now in these 4 cities
-              </p>
-              <p className="text-xs md:text-sm text-white/80 mt-1">
-                ಈಗಾಗಲೇ ಲೈವ್ · Fast · Local · Reliable
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 items-center md:items-end">
-              <div className="bg-brand-black text-white rounded-2xl px-6 py-3 shadow-2xl border-2 border-brand-yellow">
-                <div className="text-[10px] uppercase tracking-widest text-brand-yellow font-bold">Live In</div>
-                <div className="text-3xl md:text-4xl font-extrabold text-brand-yellow">NOW</div>
-                <div className="text-[10px] text-white/70 text-center">2026</div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 justify-end max-w-[280px]">
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Bengaluru</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Davangere</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Hosadurga</span>
-                <span className="bg-green-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md">✓ Chitradurga</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom wave separator */}
-        <div className="relative h-2 bg-brand-black" />
-      </section>
-
-      {/* ─── Services grid — clean, images clearly visible ─── */}
-      <section id="services" className="mx-auto max-w-6xl px-4 py-8">
-        {/* Pincode selector — validates if service is available in customer's area */}
+        {/* Pincode selector */}
         <div className="mb-6 flex flex-col sm:flex-row items-center justify-center gap-3 p-4 rounded-2xl bg-muted/40 border-2 border-dashed border-brand-yellow/40">
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-brand-red" />
