@@ -1,190 +1,63 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import PDFDocument from "pdfkit";
 
-// GET /api/payments/invoice?bookingId=PM-20260706-9506 — generate GST invoice PDF
 export async function GET(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
   try {
     const url = new URL(req.url);
     const bookingId = url.searchParams.get("bookingId");
-
-    if (!bookingId) {
-      return NextResponse.json({ error: "bookingId required" }, { status: 400 });
-    }
+    if (!bookingId) return NextResponse.json({ error: "bookingId required" }, { status: 400 });
 
     const booking = await db.booking.findFirst({
       where: { bookingId },
-      include: { service: true, customer: true, vehicle: true, supplier: true },
+      include: { service: true, customer: true, vehicle: true },
     });
+    if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-    }
-
-    // Business details from settings
     const settings = await db.settings.findMany();
-    const settingsMap: Record<string, string> = {};
-    for (const s of settings) {
-      if (s.value) settingsMap[s.key] = s.value;
-    }
-
-    const companyName = settingsMap.company_name || "HP ENTERPRISE";
-    const brandName = settingsMap.brand_name || "ParcelMaadi";
-    const gstin = settingsMap.gstin || "29ANZPH4067Q1ZS";
-    const email = settingsMap.email || "parcelmaadipm@gmail.com";
-    const phone = settingsMap.contact_1 || "9741433725";
-    const address = settingsMap.company_address || "HP Enterprise, Venkateshwara Nilaya, behind Hanuman Mandir, Nagenahalli, Hosadurga, Chitradurga, Karnataka 577515";
+    const s: Record<string, string> = {};
+    for (const set of settings) { if (set.value) s[set.key] = set.value; }
 
     const amount = booking.adminFinalAmount || booking.finalEstimate;
-    const gstPercent = 5; // Default GST for logistics
-    const cgstRate = gstPercent / 2;
-    const sgstRate = gstPercent / 2;
-    const baseAmount = amount / (1 + gstPercent / 100);
-    const cgst = baseAmount * (cgstRate / 100);
-    const sgst = baseAmount * (sgstRate / 100);
-    const total = baseAmount + cgst + sgst;
+    const gst = 5;
+    const base = amount / (1 + gst / 100);
+    const cgst = base * (gst / 200);
+    const sgst = base * (gst / 200);
+    const invNo = `PM-INV-${booking.id.toString().padStart(5, "0")}`;
 
-    // Generate invoice number
-    const invoiceNo = `PM-INV-${booking.id.toString().padStart(5, "0")}`;
-    const invoiceDate = new Date().toLocaleDateString("en-IN");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invNo}</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#1a1a1a}
+.header{text-align:center;border-bottom:3px solid #FFD700;padding-bottom:15px;margin-bottom:20px}
+.header h1{color:#E31E24;margin:0;font-size:28px}
+table{width:100%;border-collapse:collapse;margin:15px 0}
+th{background:#1a1a1a;color:#FFD700;padding:10px;text-align:left;font-size:12px}
+td{padding:10px;border-bottom:1px solid #ddd;font-size:12px}
+.totals{margin-left:auto;width:300px}
+.totals .row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dotted #ddd}
+.totals .total{font-weight:bold;font-size:16px;border-top:2px solid #1a1a1a;padding-top:8px;margin-top:5px}
+.footer{margin-top:30px;text-align:center;font-size:11px;color:#999;border-top:1px solid #ddd;padding-top:10px}
+@media print{body{padding:0}}</style></head><body>
+<div class="header"><h1>${s.company_name || "HP ENTERPRISE"}</h1>
+<div style="color:#666;font-size:12px">${s.company_address || "Nagenahalli, Hosadurga, Karnataka 577515"}<br>
+GSTIN: ${s.gstin || "29ANZPH4067Q1ZS"} | ${s.email || "parcelmaadipm@gmail.com"} | ${s.contact_1 || "9741433725"}</div></div>
+<h2 style="text-align:center">TAX INVOICE</h2>
+<div style="display:flex;justify-content:space-between;margin-bottom:20px;font-size:13px">
+<div><strong>Invoice No:</strong> ${invNo}<br><strong>Date:</strong> ${new Date().toLocaleDateString("en-IN")}</div>
+<div><strong>Booking:</strong> ${booking.bookingId}<br><strong>Payment:</strong> ${booking.paymentStatus}</div></div>
+<div style="margin-bottom:15px"><strong>Bill To:</strong><br>${booking.customer?.name || "Customer"}<br>${booking.customer?.mobile || ""}<br>${booking.pickupAddress || ""}</div>
+<table><thead><tr><th>Description</th><th>HSN</th><th>Qty</th><th>Amount</th></tr></thead>
+<tbody><tr><td>${booking.service?.name || "Logistics"} - ${booking.distanceKm || 0}km</td><td>9965</td><td>1</td><td>&#8377;${base.toFixed(2)}</td></tr></tbody></table>
+<div class="totals"><div class="row"><span>Subtotal:</span><span>&#8377;${base.toFixed(2)}</span></div>
+<div class="row"><span>CGST @ 2.5%:</span><span>&#8377;${cgst.toFixed(2)}</span></div>
+<div class="row"><span>SGST @ 2.5%:</span><span>&#8377;${sgst.toFixed(2)}</span></div>
+<div class="row total"><span>Total:</span><span>&#8377;${(base+cgst+sgst).toFixed(2)}</span></div></div>
+<div class="footer">Computer-generated invoice. Thank you for choosing ${s.brand_name || "ParcelMaadi"}!</div>
+</body></html>`;
 
-    // Create PDF
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
-    const chunks: Buffer[] = [];
-    doc.on("data", (chunk) => chunks.push(chunk));
-
-    // Header
-    doc.fontSize(22).font("Helvetica-Bold").text(companyName, { align: "center" });
-    doc.fontSize(10).font("Helvetica").text(`(Brand: ${brandName})`, { align: "center" });
-    doc.fontSize(9).text(address, { align: "center" });
-    doc.text(`GSTIN: ${gstin} | Email: ${email} | Phone: ${phone}`, { align: "center" });
-    doc.moveDown();
-
-    // Invoice title
-    doc.fontSize(16).font("Helvetica-Bold").text("TAX INVOICE", { align: "center" });
-    doc.moveDown(0.5);
-
-    // Invoice details
-    doc.fontSize(10).font("Helvetica");
-    doc.text(`Invoice No: ${invoiceNo}`, 50);
-    doc.text(`Invoice Date: ${invoiceDate}`, 50);
-    doc.text(`Booking ID: ${booking.bookingId}`, 50);
-    doc.moveDown();
-
-    // Bill To
-    doc.font("Helvetica-Bold").text("Bill To:", 50);
-    doc.font("Helvetica").text(booking.customer?.name || "Customer", 50);
-    doc.text(booking.customer?.mobile || "", 50);
-    doc.text(booking.pickupAddress || "", 50);
-    doc.moveDown();
-
-    // Service details
-    doc.font("Helvetica-Bold").text("Service Details:", 50);
-    doc.font("Helvetica").text(`Service: ${booking.service?.name || "N/A"}`, 50);
-    doc.text(`Vehicle: ${booking.vehicle?.name || "N/A"}`, 50);
-    doc.text(`From: ${booking.pickupAddress || "N/A"}`, 50);
-    doc.text(`To: ${booking.dropAddress || "N/A"}`, 50);
-    doc.text(`Distance: ${booking.distanceKm || 0} km`, 50);
-    doc.moveDown();
-
-    // Table header
-    const tableTop = doc.y + 10;
-    doc.font("Helvetica-Bold").fontSize(10);
-    doc.text("Description", 50, tableTop);
-    doc.text("HSN", 250, tableTop);
-    doc.text("Qty", 320, tableTop);
-    doc.text("Rate", 370, tableTop);
-    doc.text("Amount", 450, tableTop);
-    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-
-    // Table row
-    doc.font("Helvetica").fontSize(10);
-    const rowY = tableTop + 25;
-    doc.text(`${booking.service?.name || "Logistics Service"} - ${booking.distanceKm || 0} km`, 50, rowY);
-    doc.text("9965", 250, rowY); // HSN for transport
-    doc.text("1", 320, rowY);
-    doc.text(`₹${baseAmount.toFixed(2)}`, 370, rowY);
-    doc.text(`₹${baseAmount.toFixed(2)}`, 450, rowY);
-    doc.moveTo(50, rowY + 20).lineTo(550, rowY + 20).stroke();
-
-    // Totals
-    const totalsY = rowY + 35;
-    doc.font("Helvetica").text("Subtotal:", 350, totalsY);
-    doc.text(`₹${baseAmount.toFixed(2)}`, 450, totalsY);
-    doc.text(`CGST @ ${cgstRate}%:`, 350, totalsY + 15);
-    doc.text(`₹${cgst.toFixed(2)}`, 450, totalsY + 15);
-    doc.text(`SGST @ ${sgstRate}%:`, 350, totalsY + 30);
-    doc.text(`₹${sgst.toFixed(2)}`, 450, totalsY + 30);
-    doc.font("Helvetica-Bold").text("Total:", 350, totalsY + 50);
-    doc.text(`₹${total.toFixed(2)}`, 450, totalsY + 50);
-    doc.moveTo(350, totalsY + 65).lineTo(550, totalsY + 65).stroke();
-
-    // Amount in words
-    doc.moveDown(3);
-    doc.font("Helvetica").fontSize(9);
-    doc.text(`Amount in words: Rupees ${numberToWords(Math.round(total))} only`, 50);
-    doc.text(`Payment Status: ${booking.paymentStatus}`, 50);
-    doc.text(`Payment Method: ${booking.paymentOption || "N/A"}`, 50);
-
-    // Footer
-    doc.moveDown(3);
-    doc.fontSize(8).font("Helvetica");
-    doc.text("This is a computer-generated invoice and does not require a physical signature.", { align: "center" });
-    doc.text(`Thank you for choosing ${brandName}!`, { align: "center" });
-
-    const pdfBuffer = await new Promise<Buffer>((resolve) => {
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.end();
-    });
-
-    return new NextResponse(new Uint8Array(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoiceNo}.pdf"`,
-      },
-    });
+    return new NextResponse(html, { headers: { "Content-Type": "text/html" } });
   } catch (e: any) {
-    console.error("Invoice generation error:", e);
-    return NextResponse.json({ error: e?.message || "Invoice generation failed" }, { status: 500 });
+    return NextResponse.json({ error: e?.message }, { status: 500 });
   }
-}
-
-// Simple number to words for invoice
-function numberToWords(num: number): string {
-  if (num === 0) return "Zero";
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  
-  function twoDigit(n: number): string {
-    if (n < 20) return ones[n];
-    return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-  }
-  
-  function threeDigit(n: number): string {
-    const h = Math.floor(n / 100);
-    const r = n % 100;
-    return (h ? ones[h] + " Hundred" + (r ? " " : "") : "") + twoDigit(r);
-  }
-  
-  let words = "";
-  if (num >= 10000000) {
-    words += twoDigit(Math.floor(num / 10000000)) + " Crore ";
-    num %= 10000000;
-  }
-  if (num >= 100000) {
-    words += twoDigit(Math.floor(num / 100000)) + " Lakh ";
-    num %= 100000;
-  }
-  if (num >= 1000) {
-    words += twoDigit(Math.floor(num / 1000)) + " Thousand ";
-    num %= 1000;
-  }
-  if (num > 0) {
-    words += threeDigit(num);
-  }
-  return words.trim();
 }
