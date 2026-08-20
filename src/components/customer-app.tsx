@@ -998,6 +998,46 @@ function HomeView({ settings, hero, howItWorks, about, trust, services, onSelect
         <style>{`@keyframes slow-zoom { 0%{transform:scale(1)} 100%{transform:scale(1.1)} }`}</style>
       </section>
 
+      {/* ═══════ APP DOWNLOAD SECTION ═══════ */}
+      <section className="bg-white py-12 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h3 className="text-2xl md:text-3xl font-black mb-2" style={{color: "#1a1a1a"}}>📲 Download ParcelMaadi App</h3>
+          <p className="text-gray-500 mb-8">Choose your app and get started today.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Customer App */}
+            <div className="rounded-2xl p-6 text-center" style={{background: "linear-gradient(135deg, #fff8e7, #ffffff)", border: "2px solid #FFD700", boxShadow: "0 4px 20px rgba(255,215,0,0.15)"}}>
+              <div className="text-5xl mb-3">👤</div>
+              <h4 className="text-lg font-bold mb-1" style={{color: "#1a1a1a"}}>Customer App</h4>
+              <p className="text-sm text-gray-500 mb-4">Book Your Vehicle</p>
+              <a href="https://drive.google.com/uc?export=download&id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" target="_blank" rel="noopener noreferrer">
+                <button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #E31E24, #FF6B35)", boxShadow: "0 4px 15px rgba(227,30,36,0.3)"}}>
+                  DOWNLOAD CUSTOMER APP
+                </button>
+              </a>
+              <div className="mt-4 flex flex-col items-center">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1Sm63BlFh2hogdYShYlsAN5fONoxi4RyM" alt="Scan to download customer app" className="w-32 h-32 rounded-lg" />
+                <span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD CUSTOMER APP</span>
+              </div>
+            </div>
+            {/* Rider App */}
+            <div className="rounded-2xl p-6 text-center" style={{background: "linear-gradient(135deg, #f0f4ff, #ffffff)", border: "2px solid #6366F1", boxShadow: "0 4px 20px rgba(99,102,241,0.15)"}}>
+              <div className="text-5xl mb-3">🛵</div>
+              <h4 className="text-lg font-bold mb-1" style={{color: "#1a1a1a"}}>Rider App</h4>
+              <p className="text-sm text-gray-500 mb-4">Join as a Rider</p>
+              <a href="https://drive.google.com/uc?export=download&id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" target="_blank" rel="noopener noreferrer">
+                <button className="w-full px-6 py-3 rounded-full font-bold text-white text-sm transition-all hover:scale-105" style={{background: "linear-gradient(135deg, #6366F1, #8B5CF6)", boxShadow: "0 4px 15px rgba(99,102,241,0.3)"}}>
+                  DOWNLOAD RIDER APP
+                </button>
+              </a>
+              <div className="mt-4 flex flex-col items-center">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://drive.google.com/uc?export=download%26id=1z2r_L_0jOy3lF7Pi5CUPTPY-eAhB9s5N" alt="Scan to download rider app" className="w-32 h-32 rounded-lg" />
+                <span className="text-xs text-gray-400 mt-2">SCAN TO DOWNLOAD RIDER APP</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Announcement bar ─── */}
       {settings.announcement && (
         <div className="bg-brand-red text-white py-2 text-center text-sm font-medium">
